@@ -2,134 +2,141 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Crash Game</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aviator Crash Game</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body {
-      margin: 0;
-      background: #111;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-    }
-
-    h1 {
-      color: #0f0;
-    }
-
-    #multiplier {
-      font-size: 48px;
-      margin: 20px 0;
-      color: #0f0;
-    }
-
-    #plane {
-      width: 120px;
-      transition: transform 0.2s linear;
-      margin-top: 20px;
-    }
-
-    #status {
-      font-size: 20px;
-      margin: 10px 0;
-      color: #ffeb3b;
-    }
-
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      margin-top: 30px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      padding: 12px 24px;
-      font-size: 18px;
-      border: none;
-      border-radius: 8px;
-      background-color: #28a745;
-      color: white;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-      background-color: #218838;
-    }
-
-    audio {
-      display: none;
-    }
+    body { margin:0; background:#111; color:#fff; font-family:Arial; text-align:center; padding:20px; }
+    h1 { color:#0f0; }
+    #balance, #multiplier, #status { font-size:24px; margin:10px 0; }
+    #multiplier { font-size:48px; }
+    #plane { width:120px; transition:transform .2s linear; margin-top:20px; }
+    .controls, .bet-controls, #menu { display:flex; justify-content:center; gap:15px; flex-wrap:wrap; margin:15px 0; }
+    button { padding:10px 20px; font-size:16px; border:none; border-radius:6px; color:#fff; cursor:pointer; }
+    button.green { background:#28a745; } button.red { background:#dc3545; }
+    button.blue { background:#0066cc; }
+    input[type="number"] { width:80px; font-size:16px; padding:5px; border-radius:4px; border:none; text-align:center;}
   </style>
 </head>
 <body>
-
   <h1>🚀 Aviator Crash Game</h1>
-
-  <div id="multiplier">Loading...</div>
-
-  <!-- ✅ Plane image from GitHub raw URL -->
+  <div id="menu">
+    <button id="loginBtn" class="blue" onclick="login()">Login</button>
+    <button id="depositBtn" class="green" onclick="deposit()" disabled>Deposit</button>
+    <button id="withdrawBtn" class="red" onclick="withdraw()" disabled>Withdraw</button>
+  </div>
+  <div id="balance">Balance: ₹0</div>
+  <div id="multiplier">Multiplier: --</div>
   <img id="plane" src="https://raw.githubusercontent.com/vikram9541/aviator-game/main/assets/Flight.png" alt="Plane" />
+  <div id="status">Connecting...</div>
 
-  <div id="status">Connecting to Supabase...</div>
-
+  <div class="bet-controls">
+    <button onclick="changeBet(-25)" class="blue">-25</button>
+    <input id="betInput" type="number" value="25" min="25" step="25" disabled />
+    <button onclick="changeBet(25)" class="blue">+25</button>
+  </div>
   <div class="controls">
-    <button onclick="alert('Bet Placed')">💰 BET</button>
-    <button onclick="alert('Cashed Out')">🏁 CASHOUT</button>
+    <button id="betBtn" class="green" onclick="placeBet()" disabled>BET</button>
+    <button id="cashBtn" class="red" onclick="cashOut()" disabled>CASHOUT</button>
   </div>
 
-  <!-- ✅ Optional flying sound from GitHub -->
   <audio id="flySound" src="https://raw.githubusercontent.com/vikram9541/aviator-game/main/assets/Plane_FlySound.wav" preload="auto"></audio>
 
   <script>
-    const supabase = supabase.createClient(
-      "https://angvxvuovzbfyxblogrv.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU"
-    );
+    const SUPA_URL = "https://angvxvuovzbfyxblogrv.supabase.co";
+    const SUPA_KEY = "eyJhbGciOiJIUzI1Ni...C1vKU";
+    const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-    const plane = document.getElementById("plane");
+    let user = null, balance = 0, betAmount = 25, hasBet=false;
+
+    const loginBtn = document.getElementById("loginBtn");
+    const depositBtn = document.getElementById("depositBtn");
+    const withdrawBtn = document.getElementById("withdrawBtn");
+    const balanceLabel = document.getElementById("balance");
     const multiplierLabel = document.getElementById("multiplier");
     const statusLabel = document.getElementById("status");
+    const betInput = document.getElementById("betInput");
+    const betBtn = document.getElementById("betBtn");
+    const cashBtn = document.getElementById("cashBtn");
+    const plane = document.getElementById("plane");
     const flySound = document.getElementById("flySound");
 
-    async function fetchGameState() {
-      const { data, error } = await supabase
-        .from("game_state")
-        .select("*")
-        .eq("id", 1)
-        .single();
-
-      if (error) {
-        console.error("Fetch error:", error);
-        statusLabel.innerText = "❌ Fetch error!";
-        return;
-      }
-
-      const m = parseFloat(data.multiplier).toFixed(2);
-      multiplierLabel.innerText = m + "x";
-      statusLabel.innerText = `Status: ${data.status}`;
-      plane.style.transform = `translateY(-${m * 10}px)`;
-
-      if (data.status === "running") {
-        if (flySound.paused) flySound.play().catch(() => {});
-      } else {
-        flySound.pause();
-        flySound.currentTime = 0;
-      }
-
-      // Color for multiplier
-      let color = "#0f0";
-      if (m >= 2 && m < 4) color = "#ffa500";
-      else if (m >= 4) color = "#f00";
-      multiplierLabel.style.color = color;
+    async function login(){
+      await supa.auth.signInWithOAuth({provider:"google"});
     }
 
-    // Auto-refresh every 300ms
-    setInterval(fetchGameState, 300);
-    fetchGameState();
+    supa.auth.onAuthStateChange(async (evt, session)=>{
+      if(session){
+        user = session.user;
+        loginBtn.style.display = "none";
+        depositBtn.disabled = withdrawBtn.disabled = betBtn.disabled = false;
+        const {data} = await supa.from("users").select("balance").eq("id",user.id).single();
+        if(data) balance = data.balance;
+        else {
+          balance = 1000;
+          await supa.from("users").insert({id:user.id,email:user.email,balance});
+        }
+        updateBalanceUI();
+        startGameListener();
+      }
+    });
+
+    function updateBalanceUI(){
+      balanceLabel.textContent = `Balance: ₹${balance}`;
+      betInput.value = betAmount = Math.min(betAmount, balance);
+    }
+
+    function changeBet(delta){
+      betAmount = Math.max(25, Math.min(balance, betAmount+delta));
+      betInput.value = betAmount;
+    }
+
+    async function placeBet(){
+      if(balance >= betAmount){
+        balance -= betAmount;
+        await supa.from("users").update({balance}).eq("id",user.id);
+        hasBet=true;
+        updateBalanceUI();
+        betBtn.disabled = true;
+        cashBtn.disabled = false;
+      }
+    }
+
+    async function cashOut(){
+      if(!hasBet) return;
+      const {data:{multiplier}} = await supa.from("game_state").select("multiplier").eq("id",1).single();
+      const win = Math.round(betAmount * parseFloat(multiplier));
+      balance += win;
+      await supa.from("users").update({balance}).eq("id",user.id);
+      hasBet = false;
+      betBtn.disabled = false;
+      cashBtn.disabled = true;
+      alert(`Cashed out ₹${win}`);
+      updateBalanceUI();
+    }
+
+    function startGameListener(){
+      supa.channel('gameUpdates').on('postgres_changes',{
+        event:'UPDATE',schema:'public',table:'game_state',filter:'id=eq.1'
+      },payload=>{
+        const d=payload.new;
+        updateGameUI(d);
+      }).subscribe();
+
+      // Initial fetch
+      supa.from("game_state").select("*").eq("id",1).single().then(r=>updateGameUI(r.data));
+    }
+
+    function updateGameUI(data){
+      const m = parseFloat(data.multiplier).toFixed(2);
+      multiplierLabel.textContent = `Multiplier: ${m}x`;
+      statusLabel.textContent = `Status: ${data.status}`;
+      plane.style.transform = `translateY(-${m*10}px)`;
+      if(data.status==="running"){
+        if(flySound.paused) flySound.play().catch(()=>{});
+      } else { flySound.pause(); flySound.currentTime=0; }
+      betBtn.disabled = hasBet || balance < betAmount;
+    }
   </script>
 </body>
 </html>
