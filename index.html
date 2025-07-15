@@ -1,8 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crash Game</title>
   <style>
     body {
@@ -28,12 +27,13 @@
       display: flex;
       gap: 10px;
       font-size: 16px;
+    }
+    .history-item {
       font-weight: bold;
     }
     #menu {
       display: flex;
-      gap: 8px;
-      align-items: center;
+      gap: 10px;
     }
     #menu button {
       padding: 5px 10px;
@@ -44,12 +44,16 @@
       border-radius: 4px;
     }
     #loginBtn {
+      position: absolute;
+      top: 12px;
+      right: 60px;
       font-size: 12px;
       padding: 5px 8px;
       background: #06f;
       border: none;
       border-radius: 4px;
       color: white;
+      z-index: 999;
     }
     main {
       flex: 1;
@@ -57,35 +61,17 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-end;
-      padding: 20px;
-      position: relative;
+      padding-bottom: 40px;
     }
-    #balance {
-      font-size: 18px;
-      margin-bottom: 5px;
+    #plane {
+      width: 100px;
+      position: relative;
+      bottom: 0;
+      transition: bottom 1s linear;
     }
     #multiplier {
       font-size: 32px;
       margin-bottom: 10px;
-    }
-    #plane {
-      width: 100px;
-      position: absolute;
-      bottom: 0;
-      transition: bottom 0.1s linear;
-    }
-    #betControl {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-top: 10px;
-    }
-    #betControl button {
-      padding: 5px 10px;
-      background: #666;
-      border: none;
-      border-radius: 4px;
-      color: white;
     }
     #controls {
       display: flex;
@@ -100,6 +86,16 @@
       border: none;
       border-radius: 4px;
     }
+    #betControl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #balance {
+      font-size: 18px;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
@@ -109,14 +105,13 @@
       <div id="menu">
         <button onclick="deposit()">Deposit</button>
         <button onclick="withdraw()">Withdraw</button>
-        <button id="loginBtn" onclick="signIn()">Login</button>
       </div>
+      <button id="loginBtn" onclick="signIn()">Login</button>
     </header>
-
     <main>
       <div id="balance">Balance: ₹0</div>
       <div id="multiplier">0.00x</div>
-      <img id="plane" src="assets/Flight.png" />
+      <img id="plane" src="assets/Flight.png" alt="Plane" />
       <div id="betControl">
         <button onclick="changeBet(-25)">-25</button>
         <span id="betLabel">Bet: ₹25</span>
@@ -128,12 +123,9 @@
       </div>
     </main>
   </div>
-
-  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
   <script>
     const config = {
       apiKey: "AIzaSyAGn7jfjUuwHquYv0xEMWOo57kVm0EVzk8",
@@ -143,106 +135,96 @@
       storageBucket: "aviator-crash-3fdcf.appspot.com",
       messagingSenderId: "181752775091",
       appId: "1:181752775091:web:d0ef4745359392a12f0bc6"
-    };
-    firebase.initializeApp(config);
-    const auth = firebase.auth();
-    const db = firebase.database();
+    };firebase.initializeApp(config);
+let auth = firebase.auth();
+let db = firebase.database();
+let user = null;
+let balance = 0;
+let bet = 25;
+let i = 0;
+let historyData = [];
 
-    let user = null;
-    let balance = 0;
-    let bet = 25;
-    let currentIndex = 0;
-    let historyNumbers = [];
+function signIn() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).then(result => {
+    user = result.user;
+    document.getElementById('loginBtn').style.display = 'none';
+    initGame();
+  }).catch(error => {
+    console.error("Login error:", error);
+  });
+}
 
-    function signIn() {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).then(result => {
-        user = result.user;
-        document.getElementById('loginBtn').style.display = 'none';
-        initGame();
-      });
+function initGame() {
+  db.ref('users/' + user.uid + '/balance').once('value').then(snap => {
+    balance = snap.val() || 0;
+    updateBalance();
+  });
+  fetch('assets/history_numbers.txt')
+    .then(res => res.text())
+    .then(text => {
+      historyData = text.trim().split('\n').map(Number);
+    });
+}
+
+function updateBalance() {
+  document.getElementById('balance').textContent = `Balance: ₹${balance}`;
+}
+
+function deposit() {
+  let amt = prompt("Enter deposit amount:");
+  if (!amt || isNaN(amt)) return;
+  db.ref('requests/deposit/' + user.uid).set({ amount: amt, upi: "vikram95@kotak" });
+  alert("Deposit request sent");
+}
+
+function withdraw() {
+  let amt = prompt("Enter withdrawal amount:");
+  let upi = prompt("Enter your UPI ID:");
+  if (!amt || !upi) return;
+  db.ref('requests/withdraw/' + user.uid).set({ amount: amt, upi });
+  alert("Withdrawal request sent");
+}
+
+function changeBet(delta) {
+  if (bet + delta >= 25 && bet + delta <= balance) {
+    bet += delta;
+    document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
+  }
+}
+
+function placeBet() {
+  if (balance >= bet) {
+    balance -= bet;
+    updateBalance();
+    startFlight();
+  }
+}
+
+function cashOut() {
+  let multiplier = parseFloat(document.getElementById('multiplier').textContent);
+  let win = Math.round(bet * multiplier);
+  balance += win;
+  updateBalance();
+  alert(`Cashed out: ₹${win}`);
+}
+
+function startFlight() {
+  let plane = document.getElementById('plane');
+  plane.style.bottom = '0px';
+  let multiplier = 1.0;
+  let crashAt = historyData[i++ % historyData.length] || 2.0;
+  let flyInterval = setInterval(() => {
+    multiplier += 0.05;
+    document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
+    plane.style.bottom = `${multiplier * 20}px`;
+    if (multiplier >= crashAt) {
+      clearInterval(flyInterval);
+      alert(`Plane crashed at ${crashAt}x`);
     }
+  }, 100);
+}
 
-    function initGame() {
-      db.ref('users/' + user.uid + '/balance').once('value').then(snapshot => {
-        balance = snapshot.val() || 0;
-        updateBalance();
-      });
-
-      fetch('assets/history_numbers.txt')
-        .then(res => res.text())
-        .then(text => {
-          historyNumbers = text.trim().split('\n').map(Number);
-        });
-    }
-
-    function updateBalance() {
-      document.getElementById('balance').textContent = `Balance: ₹${balance}`;
-    }
-
-    function changeBet(delta) {
-      if (bet + delta >= 25 && bet + delta <= balance) {
-        bet += delta;
-        document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
-      }
-    }
-
-    function deposit() {
-      if (!user) return alert("Login first!");
-      let amt = prompt("Enter deposit amount:");
-      if (!amt || isNaN(amt)) return;
-      db.ref('requests/deposit/' + user.uid).set({ amount: amt, upi: "vikram95@kotak" });
-      alert("Deposit request sent!");
-    }
-
-    function withdraw() {
-      if (!user) return alert("Login first!");
-      let amt = prompt("Enter withdrawal amount:");
-      let upi = prompt("Enter your UPI ID:");
-      if (!amt || !upi) return;
-      db.ref('requests/withdraw/' + user.uid).set({ amount: amt, upi });
-      alert("Withdrawal request sent!");
-    }
-
-    function placeBet() {
-      if (balance >= bet && historyNumbers.length > 0) {
-        balance -= bet;
-        updateBalance();
-        startFlight();
-      }
-    }
-
-    function cashOut() {
-      let multiplier = parseFloat(document.getElementById('multiplier').textContent);
-      let win = Math.round(bet * multiplier);
-      balance += win;
-      updateBalance();
-      alert(`Cashed out ₹${win}`);
-    }
-
-    function startFlight() {
-      let plane = document.getElementById('plane');
-      plane.style.bottom = '0px';
-      let multiplier = 1.0;
-      let crashAt = historyNumbers[currentIndex++ % historyNumbers.length];
-      const historyDiv = document.getElementById('history');
-
-      let flyInterval = setInterval(() => {
-        multiplier += 0.05;
-        document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
-        plane.style.bottom = `${multiplier * 20}px`;
-
-        if (multiplier >= crashAt) {
-          clearInterval(flyInterval);
-          let span = document.createElement('span');
-          span.textContent = `${crashAt.toFixed(2)}x`;
-          span.style.color = crashAt < 2 ? 'red' : crashAt < 4 ? 'orange' : 'green';
-          historyDiv.prepend(span);
-          if (historyDiv.children.length > 6) historyDiv.removeChild(historyDiv.lastChild);
-          alert(`💥 Plane crashed at ${crashAt}x`);
-        }
-      }, 100);
-    }
   </script>
 </body>
 </html>
