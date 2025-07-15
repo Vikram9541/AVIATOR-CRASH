@@ -8,21 +8,21 @@
   <style>
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #111;
+      background: #111;
       color: #fff;
+      font-family: Arial, sans-serif;
       text-align: center;
       padding: 20px;
     }
 
     h1 {
-      color: #00e676;
+      color: #0f0;
     }
 
     #multiplier {
       font-size: 48px;
       margin: 20px 0;
-      color: #00ff00;
+      color: #0f0;
     }
 
     #plane {
@@ -33,8 +33,8 @@
 
     #status {
       font-size: 20px;
-      color: #ffeb3b;
       margin: 10px 0;
+      color: #ffeb3b;
     }
 
     .controls {
@@ -71,22 +71,24 @@
 
   <div id="multiplier">Loading...</div>
 
-  <img id="plane" src="https://i.ibb.co/pQFfDnC/Flight.png" alt="Plane" />
+  <!-- ✅ Plane image from GitHub raw URL -->
+  <img id="plane" src="https://raw.githubusercontent.com/vikram9541/aviator-game/main/assets/Flight.png" alt="Plane" />
 
   <div id="status">Connecting to Supabase...</div>
 
   <div class="controls">
-    <button onclick="alert('BET placed')">💰 BET</button>
-    <button onclick="alert('CASHED OUT')">🏁 CASHOUT</button>
+    <button onclick="alert('Bet Placed')">💰 BET</button>
+    <button onclick="alert('Cashed Out')">🏁 CASHOUT</button>
   </div>
 
-  <!-- Optional plane fly sound -->
-  <audio id="flySound" src="https://www.soundjay.com/transport/airplane-flyby-01a.mp3" preload="auto"></audio>
+  <!-- ✅ Optional flying sound from GitHub -->
+  <audio id="flySound" src="https://raw.githubusercontent.com/vikram9541/aviator-game/main/assets/Plane_FlySound.wav" preload="auto"></audio>
 
   <script>
-    const supabaseUrl = "https://angvxvuovzbfyxblogrv.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU";
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    const supabase = supabase.createClient(
+      "https://angvxvuovzbfyxblogrv.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU"
+    );
 
     const plane = document.getElementById("plane");
     const multiplierLabel = document.getElementById("multiplier");
@@ -102,34 +104,30 @@
 
       if (error) {
         console.error("Fetch error:", error);
-        statusLabel.textContent = "❌ Failed to fetch game data.";
+        statusLabel.innerText = "❌ Fetch error!";
         return;
       }
 
-      const multiplier = parseFloat(data.multiplier).toFixed(2);
-      const status = data.status;
+      const m = parseFloat(data.multiplier).toFixed(2);
+      multiplierLabel.innerText = m + "x";
+      statusLabel.innerText = `Status: ${data.status}`;
+      plane.style.transform = `translateY(-${m * 10}px)`;
 
-      // Update UI
-      multiplierLabel.textContent = `${multiplier}x`;
-      statusLabel.textContent = `Status: ${status}`;
-      plane.style.transform = `translateY(-${multiplier * 10}px)`;
-
-      // Sound
-      if (status === "flying" && flySound.paused) {
-        flySound.play().catch(err => {});
-      } else if (status === "crashed") {
+      if (data.status === "running") {
+        if (flySound.paused) flySound.play().catch(() => {});
+      } else {
         flySound.pause();
         flySound.currentTime = 0;
       }
 
-      // Color scale
-      let color = "#00ff00";
-      if (multiplier >= 2 && multiplier < 4) color = "#ff9800";
-      else if (multiplier >= 4) color = "#f44336";
+      // Color for multiplier
+      let color = "#0f0";
+      if (m >= 2 && m < 4) color = "#ffa500";
+      else if (m >= 4) color = "#f00";
       multiplierLabel.style.color = color;
     }
 
-    // Fetch continuously
+    // Auto-refresh every 300ms
     setInterval(fetchGameState, 300);
     fetchGameState();
   </script>
