@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Crash Game</title>
+  <style>
+    body { text-align: center; font-family: sans-serif; background: #111; color: white; }
+    .multiplier { font-size: 48px; margin-top: 50px; color: yellow; }
+    .history { margin-top: 20px; white-space: pre-line; }
+    .btn { padding: 10px 20px; font-size: 18px; margin: 10px; }
+    .plane { width: 100px; transition: transform 0.2s linear; }
+  </style>
+</head>
+<body>
+
+<h1>Crash Game</h1>
+<div>Balance: ₹<span id="balance">1000</span></div>
+<div>Bet: ₹<span id="bet">25</span></div>
+
+<button class="btn" onclick="placeBet()">BET</button>
+<button class="btn" onclick="cashOut()" disabled id="cashoutBtn">CASHOUT</button>
+
+<div class="multiplier" id="multiplier">1.00x</div>
+<img src="https://cdn-icons-png.flaticon.com/512/1699/1699610.png" class="plane" id="plane" />
+
+<div class="history" id="history">History:</div>
+
+<script>
+let balance = 1000;
+let betAmount = 25;
+let multiplier = 1.0;
+let crashPoint = 2 + Math.random() * 3;
+let gameRunning = false;
+let betPlaced = false;
+let interval = null;
+let history = [];
+let crashPoints = [3.13, 2.6, 1.07, 2.2, 3.4, 1.89];
+let currentIndex = 0;
+
+function updateUI() {
+  document.getElementById('balance').innerText = balance;
+  document.getElementById('bet').innerText = betAmount;
+}
+
+function placeBet() {
+  if (balance >= betAmount && !gameRunning) {
+    balance -= betAmount;
+    betPlaced = true;
+    multiplier = 1.0;
+    crashPoint = crashPoints[currentIndex];
+    currentIndex = (currentIndex + 1) % crashPoints.length;
+    document.getElementById("cashoutBtn").disabled = false;
+    startGame();
+    updateUI();
+  }
+}
+
+function cashOut() {
+  if (betPlaced && gameRunning) {
+    balance += Math.floor(betAmount * multiplier);
+    betPlaced = false;
+    endGame("CASHED OUT");
+    updateUI();
+  }
+}
+
+function startGame() {
+  gameRunning = true;
+  interval = setInterval(() => {
+    multiplier += 0.02;
+    document.getElementById("multiplier").innerText = multiplier.toFixed(2) + "x";
+    document.getElementById("plane").style.transform = `translateY(-${multiplier * 10}px)`;
+
+    if (multiplier >= crashPoint) {
+      endGame("CRASHED");
+    }
+  }, 100);
+}
+
+function endGame(status) {
+  clearInterval(interval);
+  gameRunning = false;
+  document.getElementById("cashoutBtn").disabled = true;
+  history.unshift(`${multiplier.toFixed(2)}x - ${status}`);
+  document.getElementById("history").innerText = "History:\n" + history.slice(0, 5).join('\n');
+  multiplier = 1.0;
+  betPlaced = false;
+}
+
+updateUI();
+</script>
+
+</body>
+</html>
