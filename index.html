@@ -1,263 +1,120 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crash Game</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body {
-      margin: 0;
-      font-family: Arial, sans-serif;
       background: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background: #222;
-    }
-
-    #menu button, #loginBtn {
-      background: #06f;
       color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
-      margin-left: 5px;
+      font-family: Arial;
+      text-align: center;
+      padding: 20px;
     }
-
-    #history {
-      display: flex;
-      gap: 5px;
-      font-size: 18px;
-    }
-
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px;
-    }
-
-    #balance, #multiplier {
-      font-size: 24px;
-      margin: 10px 0;
-    }
-
-    #plane {
-      width: 120px;
-      position: relative;
-    }
-
-    #gameControls {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    #betControl {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-      align-items: center;
-    }
-
-    #controls {
-      width: 100%;
-      display: flex;
-      gap: 20px;
-      justify-content: center;
-      padding: 10px;
-    }
-
-    #controls button {
-      flex: 1;
-      max-width: 160px;
-      height: 60px;
-      font-size: 20px;
-      border: none;
-      border-radius: 10px;
-      color: white;
-      font-weight: bold;
-    }
-
-    #betBtn {
-      background: #28a745;
-    }
-
-    #cashBtn {
-      background: #dc3545;
-    }
-
     button {
-      padding: 10px;
-      background: #444;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 18px;
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
     }
   </style>
 </head>
 <body>
-  <header>
-    <div id="history"></div>
-    <div id="menu">
-      <button onclick="deposit()">Deposit</button>
-      <button onclick="withdraw()">Withdraw</button>
-      <button id="loginBtn" onclick="signIn()">Login</button>
-    </div>
-  </header>
 
-  <div id="main">
-    <div>
-      <div id="balance">Balance: ₹0</div>
-      <div id="multiplier">0.00x</div>
-    </div>
+  <h1>Crash Game</h1>
 
-    <img id="plane" src="assets/Flight.png" alt="Plane" />
-
-    <div id="gameControls">
-      <div id="betControl">
-        <button onclick="changeBet(-25)">-25</button>
-        <span id="betLabel">Bet: ₹25</span>
-        <button onclick="changeBet(25)">+25</button>
-      </div>
-
-      <div id="controls">
-        <button id="betBtn" onclick="placeBet()">BET</button>
-        <button id="cashBtn" onclick="cashOut()">CASHOUT</button>
-      </div>
-    </div>
+  <div id="auth">
+    <button onclick="login()">Login with Google</button>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <div id="game" style="display:none;">
+    <h2 id="email"></h2>
+    <h3 id="balance">Balance: ₹0</h3>
+    <h3 id="multiplier">Multiplier: 0.00x</h3>
+
+    <button onclick="placeBet()">BET ₹25</button>
+    <button onclick="cashOut()">CASHOUT</button>
+  </div>
 
   <script>
-    const config = {
-      apiKey: "AIzaSyAGn7jfjUuwHquYv0xEMWOo57kVm0EVzk8",
-      authDomain: "aviator-crash-3fdcf.firebaseapp.com",
-      databaseURL: "https://aviator-crash-3fdcf-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "aviator-crash-3fdcf",
-      storageBucket: "aviator-crash-3fdcf.appspot.com",
-      messagingSenderId: "181752775091",
-      appId: "1:181752775091:web:d0ef4745359392a12f0bc6"
-    };
+    const SUPABASE_URL = "https://angvxvuovzbfyxblogrv.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    firebase.initializeApp(config);
-    let auth = firebase.auth();
-    let db = firebase.database();
     let user = null;
     let balance = 0;
-    let bet = 25;
     let multiplier = 1.0;
-    let gameInterval;
-    let historyIndex = 0;
-    let historyList = [];
+    let interval;
 
-    fetch('assets/history_numbers.txt')
-      .then(res => res.text())
-      .then(text => {
-        historyList = text.trim().split('\n').map(Number);
-        startFlight();
-      });
+    async function login() {
+      const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+      if (error) alert(error.message);
+    }
+
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        user = session.user;
+        document.getElementById("auth").style.display = "none";
+        document.getElementById("game").style.display = "block";
+        document.getElementById("email").textContent = user.email;
+
+        // fetch or create user balance
+        const { data, error } = await supabase.from("users").select("*").eq("id", user.id).single();
+        if (data) {
+          balance = data.balance;
+        } else {
+          await supabase.from("users").insert([{ id: user.id, email: user.email, balance: 1000 }]);
+          balance = 1000;
+        }
+        updateUI();
+        startWatchingGame();
+      }
+    });
 
     function updateUI() {
-      document.getElementById('balance').textContent = `Balance: ₹${balance}`;
-      document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
+      document.getElementById("balance").textContent = `Balance: ₹${balance}`;
     }
 
-    function signIn() {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).then(result => {
-        user = result.user;
-        document.getElementById('loginBtn').style.display = 'none';
-        db.ref('users/' + user.uid + '/balance').once('value').then(snap => {
-          balance = snap.val() || 0;
-          updateUI();
-        });
-      });
-    }
-
-    function deposit() {
-      if (!user) return alert('Login first');
-      let amt = prompt('Enter deposit amount');
-      db.ref('requests/deposit/' + user.uid).set({ amount: amt, upi: 'vikram95@kotak' });
-      alert('Deposit request sent');
-    }
-
-    function withdraw() {
-      if (!user) return alert('Login first');
-      let amt = prompt('Enter withdrawal amount');
-      let upi = prompt('Enter your UPI ID');
-      db.ref('requests/withdraw/' + user.uid).set({ amount: amt, upi });
-      alert('Withdrawal request sent');
-    }
-
-    function changeBet(delta) {
-      if (bet + delta >= 25 && bet + delta <= balance) {
-        bet += delta;
+    async function placeBet() {
+      if (balance >= 25) {
+        balance -= 25;
         updateUI();
+        await supabase.from("users").update({ balance }).eq("id", user.id);
+      } else {
+        alert("Not enough balance!");
       }
     }
 
-    function placeBet() {
-      if (balance >= bet) {
-        balance -= bet;
-        updateUI();
-        document.getElementById('betBtn').disabled = true;
-        document.getElementById('cashBtn').disabled = false;
-      }
-    }
-
-    function cashOut() {
-      const win = Math.round(bet * multiplier);
+    async function cashOut() {
+      let win = Math.round(25 * multiplier);
       balance += win;
       updateUI();
-      alert(`Cashed out: ₹${win}`);
-      document.getElementById('betBtn').disabled = false;
-      document.getElementById('cashBtn').disabled = true;
+      alert("You won ₹" + win);
+      await supabase.from("users").update({ balance }).eq("id", user.id);
     }
 
-    function startFlight() {
-      let plane = document.getElementById('plane');
-      let i = historyIndex % historyList.length;
-      let crash = historyList[i];
-      historyIndex++;
+    async function startWatchingGame() {
+      // Watch game_state table for multiplier
+      const { data: listener } = await supabase
+        .channel('game_updates')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'game_state',
+        }, payload => {
+          const data = payload.new;
+          multiplier = data.multiplier;
+          document.getElementById("multiplier").textContent = `Multiplier: ${multiplier.toFixed(2)}x`;
+        })
+        .subscribe();
 
-      multiplier = 1.0;
-      document.getElementById('multiplier').textContent = `1.00x`;
-      plane.style.bottom = `0px`;
-
-      let historyDiv = document.getElementById('history');
-
-      gameInterval = setInterval(() => {
-        multiplier += 0.05;
-        document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
-        plane.style.bottom = `${multiplier * 10}px`;
-
-        if (multiplier >= crash) {
-          clearInterval(gameInterval);
-          alert(`💥 Plane crashed at ${crash}x`);
-          historyDiv.innerHTML = `<span style="color:${crash < 2 ? 'red' : crash < 4 ? 'orange' : 'lime'};font-weight:bold">${crash.toFixed(2)}x</span>` + " " + historyDiv.innerHTML;
-          multiplier = 1.0;
-          document.getElementById('betBtn').disabled = false;
-          document.getElementById('cashBtn').disabled = true;
-          setTimeout(startFlight, 3000);
-        }
-      }, 100);
+      // Initial fetch
+      const { data, error } = await supabase.from("game_state").select("*").limit(1).single();
+      if (data) {
+        multiplier = data.multiplier;
+        document.getElementById("multiplier").textContent = `Multiplier: ${multiplier.toFixed(2)}x`;
+      }
     }
   </script>
 </body>
-  </html>
+</html>
