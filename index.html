@@ -1,142 +1,107 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Aviator Crash Game</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crash Game Login</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body { margin:0; background:#111; color:#fff; font-family:Arial; text-align:center; padding:20px; }
-    h1 { color:#0f0; }
-    #balance, #multiplier, #status { font-size:24px; margin:10px 0; }
-    #multiplier { font-size:48px; }
-    #plane { width:120px; transition:transform .2s linear; margin-top:20px; }
-    .controls, .bet-controls, #menu { display:flex; justify-content:center; gap:15px; flex-wrap:wrap; margin:15px 0; }
-    button { padding:10px 20px; font-size:16px; border:none; border-radius:6px; color:#fff; cursor:pointer; }
-    button.green { background:#28a745; } button.red { background:#dc3545; }
-    button.blue { background:#0066cc; }
-    input[type="number"] { width:80px; font-size:16px; padding:5px; border-radius:4px; border:none; text-align:center;}
+    body { font-family: Arial, sans-serif; background: #111; color: white; padding: 20px; }
+    .section { margin-bottom: 30px; border: 1px solid #444; padding: 20px; border-radius: 8px; }
+    label, input, button { display: block; margin: 10px 0; }
+    input, button { padding: 10px; width: 100%; max-width: 300px; }
+    #dashboard { display: none; }
   </style>
 </head>
-<body>
-  <h1>🚀 Aviator Crash Game</h1>
-  <div id="menu">
-    <button id="loginBtn" class="blue" onclick="login()">Login</button>
-    <button id="depositBtn" class="green" onclick="deposit()" disabled>Deposit</button>
-    <button id="withdrawBtn" class="red" onclick="withdraw()" disabled>Withdraw</button>
+<body><h1>🚀 Crash Game Auth System</h1><div id="authSection" class="section">
+  <button onclick="showSignUp()">First Time User</button>
+  <button onclick="showLogin()">Already Have an Account</button>  <div id="signUpForm" style="display:none">
+    <h3>Register</h3>
+    <label>Name</label>
+    <input id="signUpName" type="text">
+    <label>Mobile</label>
+    <input id="signUpMobile" type="text">
+    <label>Password</label>
+    <input id="signUpPass" type="password">
+    <button onclick="registerUser()">Create Account</button>
+  </div>  <div id="loginForm" style="display:none">
+    <h3>Login</h3>
+    <label>Mobile</label>
+    <input id="loginMobile" type="text">
+    <label>Password</label>
+    <input id="loginPass" type="password">
+    <button onclick="loginUser()">Login</button>
   </div>
-  <div id="balance">Balance: ₹0</div>
-  <div id="multiplier">Multiplier: --</div>
-  <img id="plane" src="https://raw.githubusercontent.com/vikram9541/aviator-game/main/assets/Flight.png" alt="Plane" />
-  <div id="status">Connecting...</div>
+</div><div id="dashboard" class="section">
+  <h2>Welcome <span id="userName"></span></h2>
+  <h3>Balance: ₹<span id="userBalance">0</span></h3>  <h3>💰 Deposit</h3>
+  <label>Enter Amount</label>
+  <input id="depositAmt" type="number">
+  <label>UPI ID: <b>vikram95@kotak</b></label>
+  <label>Enter UTR</label>
+  <input id="depositUtr" type="text">
+  <button onclick="submitDeposit()">Submit Deposit Request</button>
+</div><script>
+  const SUPABASE_URL = "https://angvxvuovzbfyxblogrv.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU";
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  <div class="bet-controls">
-    <button onclick="changeBet(-25)" class="blue">-25</button>
-    <input id="betInput" type="number" value="25" min="25" step="25" disabled />
-    <button onclick="changeBet(25)" class="blue">+25</button>
-  </div>
-  <div class="controls">
-    <button id="betBtn" class="green" onclick="placeBet()" disabled>BET</button>
-    <button id="cashBtn" class="red" onclick="cashOut()" disabled>CASHOUT</button>
-  </div>
+  let currentUser = null;
 
-  <audio id="flySound" src="https://raw.githubusercontent.com/vikram9541/aviator-game/main/assets/Plane_FlySound.wav" preload="auto"></audio>
+  function showSignUp() {
+    document.getElementById('signUpForm').style.display = 'block';
+    document.getElementById('loginForm').style.display = 'none';
+  }
 
-  <script>
-    const SUPA_URL = "https://angvxvuovzbfyxblogrv.supabase.co";
-    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU"
-    const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+  function showLogin() {
+    document.getElementById('signUpForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+  }
 
-    let user = null, balance = 0, betAmount = 25, hasBet=false;
+  async function registerUser() {
+    const name = document.getElementById('signUpName').value;
+    const mobile = document.getElementById('signUpMobile').value;
+    const password = document.getElementById('signUpPass').value;
 
-    const loginBtn = document.getElementById("loginBtn");
-    const depositBtn = document.getElementById("depositBtn");
-    const withdrawBtn = document.getElementById("withdrawBtn");
-    const balanceLabel = document.getElementById("balance");
-    const multiplierLabel = document.getElementById("multiplier");
-    const statusLabel = document.getElementById("status");
-    const betInput = document.getElementById("betInput");
-    const betBtn = document.getElementById("betBtn");
-    const cashBtn = document.getElementById("cashBtn");
-    const plane = document.getElementById("plane");
-    const flySound = document.getElementById("flySound");
+    const { data, error } = await supabase.from("users").insert([{ name, mobile, password, balance: 0 }]);
+    if (error) return alert("❌ Error: " + error.message);
+    alert("✅ Account Created. Please login.");
+    showLogin();
+  }
 
-    async function login(){
-      await supa.auth.signInWithOAuth({provider:"google"});
-    }
+  async function loginUser() {
+    const mobile = document.getElementById('loginMobile').value;
+    const password = document.getElementById('loginPass').value;
 
-    supa.auth.onAuthStateChange(async (evt, session)=>{
-      if(session){
-        user = session.user;
-        loginBtn.style.display = "none";
-        depositBtn.disabled = withdrawBtn.disabled = betBtn.disabled = false;
-        const {data} = await supa.from("users").select("balance").eq("id",user.id).single();
-        if(data) balance = data.balance;
-        else {
-          balance = 1000;
-          await supa.from("users").insert({id:user.id,email:user.email,balance});
-        }
-        updateBalanceUI();
-        startGameListener();
+    const { data, error } = await supabase.from("users")
+      .select("*")
+      .eq("mobile", mobile)
+      .eq("password", password)
+      .maybeSingle();
+
+    if (!data) return alert("❌ Invalid login");
+    currentUser = data;
+    document.getElementById("authSection").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    document.getElementById("userName").textContent = currentUser.name;
+    document.getElementById("userBalance").textContent = currentUser.balance;
+  }
+
+  async function submitDeposit() {
+    const amount = parseFloat(document.getElementById('depositAmt').value);
+    const utr = document.getElementById('depositUtr').value;
+    if (!amount || !utr) return alert("❌ Please fill amount and UTR");
+
+    const { data, error } = await supabase.from("deposit_requests").insert([
+      {
+        mobile: currentUser.mobile,
+        amount,
+        utr,
+        status: "pending"
       }
-    });
+    ]);
 
-    function updateBalanceUI(){
-      balanceLabel.textContent = `Balance: ₹${balance}`;
-      betInput.value = betAmount = Math.min(betAmount, balance);
-    }
-
-    function changeBet(delta){
-      betAmount = Math.max(25, Math.min(balance, betAmount+delta));
-      betInput.value = betAmount;
-    }
-
-    async function placeBet(){
-      if(balance >= betAmount){
-        balance -= betAmount;
-        await supa.from("users").update({balance}).eq("id",user.id);
-        hasBet=true;
-        updateBalanceUI();
-        betBtn.disabled = true;
-        cashBtn.disabled = false;
-      }
-    }
-
-    async function cashOut(){
-      if(!hasBet) return;
-      const {data:{multiplier}} = await supa.from("game_state").select("multiplier").eq("id",1).single();
-      const win = Math.round(betAmount * parseFloat(multiplier));
-      balance += win;
-      await supa.from("users").update({balance}).eq("id",user.id);
-      hasBet = false;
-      betBtn.disabled = false;
-      cashBtn.disabled = true;
-      alert(`Cashed out ₹${win}`);
-      updateBalanceUI();
-    }
-
-    function startGameListener(){
-      supa.channel('gameUpdates').on('postgres_changes',{
-        event:'UPDATE',schema:'public',table:'game_state',filter:'id=eq.1'
-      },payload=>{
-        const d=payload.new;
-        updateGameUI(d);
-      }).subscribe();
-
-      // Initial fetch
-      supa.from("game_state").select("*").eq("id",1).single().then(r=>updateGameUI(r.data));
-    }
-
-    function updateGameUI(data){
-      const m = parseFloat(data.multiplier).toFixed(2);
-      multiplierLabel.textContent = `Multiplier: ${m}x`;
-      statusLabel.textContent = `Status: ${data.status}`;
-      plane.style.transform = `translateY(-${m*10}px)`;
-      if(data.status==="running"){
-        if(flySound.paused) flySound.play().catch(()=>{});
-      } else { flySound.pause(); flySound.currentTime=0; }
-      betBtn.disabled = hasBet || balance < betAmount;
-    }
-  </script>
-</body>
+    if (error) return alert("❌ Failed to submit: " + error.message);
+    alert("✅ Deposit request sent. Balance will be updated once approved.");
+  }
+</script></body>
 </html>
