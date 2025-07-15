@@ -1,7 +1,8 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Crash Game</title>
   <style>
     body {
@@ -34,7 +35,6 @@
     #menu {
       display: flex;
       gap: 10px;
-      align-items: center;
     }
     #menu button {
       padding: 5px 10px;
@@ -59,6 +59,20 @@
       align-items: center;
       justify-content: flex-end;
       padding-bottom: 40px;
+      position: relative;
+    }
+    #info {
+      position: absolute;
+      top: 60px;
+      text-align: center;
+    }
+    #multiplier {
+      font-size: 32px;
+      margin-bottom: 5px;
+    }
+    #balance {
+      font-size: 18px;
+      margin-bottom: 10px;
     }
     #plane {
       width: 100px;
@@ -66,32 +80,24 @@
       bottom: 0;
       transition: bottom 1s linear;
     }
-    #multiplier {
-      font-size: 32px;
-      margin-bottom: 10px;
-    }
-    #controls {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    #controls button {
-      padding: 10px;
-      font-size: 14px;
-      background: #28a745;
-      color: white;
-      border: none;
-      border-radius: 4px;
-    }
     #betControl {
       display: flex;
       align-items: center;
       gap: 10px;
       margin-top: 10px;
     }
-    #balance {
-      font-size: 18px;
-      margin-top: 5px;
+    #controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #controls button, #betControl button {
+      padding: 10px;
+      font-size: 14px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
     }
   </style>
 </head>
@@ -106,8 +112,10 @@
       </div>
     </header>
     <main>
-      <div id="balance">Balance: ₹0</div>
-      <div id="multiplier">0.00x</div>
+      <div id="info">
+        <div id="balance">Balance: ₹0</div>
+        <div id="multiplier">0.00x</div>
+      </div>
       <img id="plane" src="assets/Flight.png" alt="Plane" />
       <div id="betControl">
         <button onclick="changeBet(-25)">-25</button>
@@ -119,7 +127,14 @@
         <button onclick="cashOut()">CASHOUT</button>
       </div>
     </main>
-  </div>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
     const config = {
       apiKey: "AIzaSyAGn7jfjUuwHquYv0xEMWOo57kVm0EVzk8",
       authDomain: "aviator-crash-3fdcf.firebaseapp.com",
@@ -129,37 +144,35 @@
       messagingSenderId: "181752775091",
       appId: "1:181752775091:web:d0ef4745359392a12f0bc6"
     };
-
     firebase.initializeApp(config);
     const auth = firebase.auth();
     const db = firebase.database();
     let user = null;
     let balance = 0;
     let bet = 25;
-    let crashHistory = [];
+    let crashList = [];
     let crashIndex = 0;
 
     window.onload = () => {
-      fetch("assets/history_numbers.txt")
-        .then(res => res.text())
-        .then(text => {
-          crashHistory = text.trim().split("\n").map(Number);
-          loopGame();
-        });
+      auth.getRedirectResult().then(result => {
+        if (result.user) {
+          user = result.user;
+          document.getElementById('loginBtn').style.display = 'none';
+          initGame();
+        }
+      });
     };
 
     function signIn() {
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).then(result => {
-        user = result.user;
-        document.getElementById('loginBtn').style.display = 'none';
-        db.ref('users/' + user.uid + '/balance').once('value').then(snap => {
-          balance = snap.val() || 0;
-          updateBalance();
-        });
-      }).catch(e => {
-        console.error("Login failed", e);
-        alert("Login failed: " + e.message);
+      auth.signInWithRedirect(provider);
+    }
+
+    function initGame() {
+      if (!user) return;
+      db.ref('users/' + user.uid + '/balance').once('value').then(snap => {
+        balance = snap.val() || 0;
+        updateBalance();
       });
     }
 
@@ -168,7 +181,6 @@
     }
 
     function deposit() {
-      if (!user) return alert("Login required");
       let amt = prompt("Enter deposit amount:");
       if (!amt || isNaN(amt)) return;
       db.ref('requests/deposit/' + user.uid).set({ amount: amt, upi: "vikram95@kotak" });
@@ -176,7 +188,6 @@
     }
 
     function withdraw() {
-      if (!user) return alert("Login required");
       let amt = prompt("Enter withdrawal amount:");
       let upi = prompt("Enter your UPI ID:");
       if (!amt || !upi) return;
@@ -200,32 +211,41 @@
     }
 
     function cashOut() {
-      const multiplier = parseFloat(document.getElementById('multiplier').textContent);
-      const win = Math.round(bet * multiplier);
+      let multiplier = parseFloat(document.getElementById('multiplier').textContent);
+      let win = Math.round(bet * multiplier);
       balance += win;
       updateBalance();
       alert(`Cashed out: ₹${win}`);
     }
 
-    function loopGame() {
-      setInterval(startFlight, 10000);
-    }
+    // Load history file once
+    fetch('assets/history_numbers.txt')
+      .then(res => res.text())
+      .then(text => {
+        crashList = text.trim().split('\n').map(Number);
+        runFlightLoop();
+      });
 
-    function startFlight() {
-      const plane = document.getElementById('plane');
-      plane.style.bottom = '0px';
+    function runFlightLoop() {
+      let plane = document.getElementById('plane');
       let multiplier = 1.0;
-      let crashAt = crashHistory[crashIndex++ % crashHistory.length];
-      document.getElementById('multiplier').textContent = '1.00x';
-      const fly = setInterval(() => {
+      let i = crashIndex++ % crashList.length;
+      let crashAt = crashList[i];
+
+      let flyInterval = setInterval(() => {
         multiplier += 0.05;
         document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
         plane.style.bottom = `${multiplier * 20}px`;
+
         if (multiplier >= crashAt) {
-          clearInterval(fly);
+          clearInterval(flyInterval);
           alert(`Plane crashed at ${crashAt}x`);
+          document.getElementById('multiplier').textContent = `0.00x`;
+          plane.style.bottom = '0px';
+          setTimeout(runFlightLoop, 3000);
         }
       }, 100);
     }
-  </script></body>
-        </html>
+  </script>
+</body>
+</html>
