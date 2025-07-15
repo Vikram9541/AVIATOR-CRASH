@@ -35,7 +35,7 @@
       display: flex;
       gap: 10px;
     }
-    #menu button {
+    #menu button, #loginBtn {
       padding: 5px 10px;
       font-size: 12px;
       background: #444;
@@ -44,16 +44,8 @@
       border-radius: 4px;
     }
     #loginBtn {
-      position: absolute;
-      top: 12px;
-      right: 60px;
-      font-size: 12px;
-      padding: 5px 8px;
+      margin-left: 5px;
       background: #06f;
-      border: none;
-      border-radius: 4px;
-      color: white;
-      z-index: 999;
     }
     main {
       flex: 1;
@@ -67,7 +59,7 @@
       width: 100px;
       position: relative;
       bottom: 0;
-      transition: bottom 1s linear;
+      transition: bottom 0.1s linear;
     }
     #multiplier {
       font-size: 32px;
@@ -105,8 +97,8 @@
       <div id="menu">
         <button onclick="deposit()">Deposit</button>
         <button onclick="withdraw()">Withdraw</button>
+        <button id="loginBtn" onclick="signIn()">Login</button>
       </div>
-      <button id="loginBtn" onclick="signIn()">Login</button>
     </header>
     <main>
       <div id="balance">Balance: ₹0</div>
@@ -135,36 +127,29 @@
       storageBucket: "aviator-crash-3fdcf.appspot.com",
       messagingSenderId: "181752775091",
       appId: "1:181752775091:web:d0ef4745359392a12f0bc6"
-    };firebase.initializeApp(config);
-let auth = firebase.auth();
-let db = firebase.database();
-let user = null;
+    };
+    firebase.initializeApp(config);
+    const auth = firebase.auth();
+    const db = firebase.database();let user = null;
 let balance = 0;
 let bet = 25;
-let i = 0;
-let historyData = [];
+let historyList = [];
+let historyIndex = 0;
+
+auth.onAuthStateChanged(u => {
+  if (u) {
+    user = u;
+    document.getElementById('loginBtn').style.display = 'none';
+    db.ref('users/' + user.uid + '/balance').once('value').then(snap => {
+      balance = snap.val() || 0;
+      updateBalance();
+    });
+  }
+});
 
 function signIn() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).then(result => {
-    user = result.user;
-    document.getElementById('loginBtn').style.display = 'none';
-    initGame();
-  }).catch(error => {
-    console.error("Login error:", error);
-  });
-}
-
-function initGame() {
-  db.ref('users/' + user.uid + '/balance').once('value').then(snap => {
-    balance = snap.val() || 0;
-    updateBalance();
-  });
-  fetch('assets/history_numbers.txt')
-    .then(res => res.text())
-    .then(text => {
-      historyData = text.trim().split('\n').map(Number);
-    });
+  auth.signInWithPopup(provider).catch(console.error);
 }
 
 function updateBalance() {
@@ -187,8 +172,9 @@ function withdraw() {
 }
 
 function changeBet(delta) {
-  if (bet + delta >= 25 && bet + delta <= balance) {
-    bet += delta;
+  let newBet = bet + delta;
+  if (newBet >= 25 && newBet <= balance) {
+    bet = newBet;
     document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
   }
 }
@@ -197,7 +183,6 @@ function placeBet() {
   if (balance >= bet) {
     balance -= bet;
     updateBalance();
-    startFlight();
   }
 }
 
@@ -209,20 +194,46 @@ function cashOut() {
   alert(`Cashed out: ₹${win}`);
 }
 
-function startFlight() {
-  let plane = document.getElementById('plane');
+function updateHistory(crash) {
+  historyList.unshift(crash.toFixed(2));
+  if (historyList.length > 5) historyList.pop();
+  document.getElementById('history').innerHTML = historyList.map(h => `<span class='history-item'>${h}x</span>`).join(' ');
+}
+
+let multiplier = 1.0;
+let flightInterval;
+
+function startGameLoop() {
+  fetch('assets/history_numbers.txt')
+    .then(res => res.text())
+    .then(text => {
+      let historyNumbers = text.trim().split("\n").map(Number);
+      setInterval(() => {
+        runFlight(historyNumbers[historyIndex % historyNumbers.length]);
+        historyIndex++;
+      }, 15000);
+    });
+}
+
+function runFlight(crashAt) {
+  multiplier = 1.0;
+  document.getElementById('multiplier').textContent = `1.00x`;
+  const plane = document.getElementById('plane');
   plane.style.bottom = '0px';
-  let multiplier = 1.0;
-  let crashAt = historyData[i++ % historyData.length] || 2.0;
-  let flyInterval = setInterval(() => {
+  if (flightInterval) clearInterval(flightInterval);
+  flightInterval = setInterval(() => {
     multiplier += 0.05;
     document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
     plane.style.bottom = `${multiplier * 20}px`;
     if (multiplier >= crashAt) {
-      clearInterval(flyInterval);
-      alert(`Plane crashed at ${crashAt}x`);
+      clearInterval(flightInterval);
+      updateHistory(crashAt);
     }
   }, 100);
+}
+
+window.onload = () => {
+  startGameLoop();
 }
 
   </script>
