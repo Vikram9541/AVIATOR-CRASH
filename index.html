@@ -34,9 +34,8 @@
     #menu {
       display: flex;
       gap: 10px;
-      align-items: center;
     }
-    #menu button {
+    #menu button, #loginBtn {
       padding: 5px 10px;
       font-size: 12px;
       background: #444;
@@ -44,13 +43,19 @@
       border: none;
       border-radius: 4px;
     }
+    #loginBtn {
+      position: absolute;
+      top: 12px;
+      right: 80px;
+      background: #06f;
+    }
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      padding: 20px 0;
+      justify-content: flex-end;
+      padding-bottom: 40px;
     }
     #plane {
       width: 100px;
@@ -58,16 +63,16 @@
       bottom: 0;
       transition: bottom 1s linear;
     }
-    #multiplier {
-      font-size: 32px;
-      margin-top: 5px;
+    #multiplier, #balance {
+      font-size: 24px;
+      margin-top: 10px;
     }
-    #controls, #betControl {
+    #controls {
       display: flex;
       gap: 10px;
       margin-top: 10px;
     }
-    #controls button, #betControl button {
+    #controls button {
       padding: 10px;
       font-size: 14px;
       background: #28a745;
@@ -75,45 +80,11 @@
       border: none;
       border-radius: 4px;
     }
-    #balance {
-      font-size: 18px;
-      margin-top: 5px;
-    }
-    #authModal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      z-index: 1000;
-    }
-    #authTabs button {
-      margin: 5px;
-      padding: 5px 10px;
-    }
-    #authForm {
+    #betControl {
       display: flex;
-      flex-direction: column;
+      align-items: center;
       gap: 10px;
-      margin-top: 20px;
-    }
-    #authForm input {
-      padding: 8px;
-      width: 200px;
-    }
-    .tab-section {
-      display: none;
-    }
-    .tab-section.active {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -124,7 +95,7 @@
       <div id="menu">
         <button onclick="deposit()">Deposit</button>
         <button onclick="withdraw()">Withdraw</button>
-        <button onclick="openLogin()">Login</button>
+        <button id="loginBtn" onclick="signIn()">Login</button>
       </div>
     </header>
     <main>
@@ -141,97 +112,69 @@
         <button onclick="cashOut()">CASHOUT</button>
       </div>
     </main>
-  </div>  <div id="authModal">
-    <div id="authTabs">
-      <button onclick="showTab('login')">Already have an account</button>
-      <button onclick="showTab('signup')">Create new account</button>
-    </div>
-    <div id="authForm">
-      <div id="loginTab" class="tab-section">
-        <input id="loginMobile" placeholder="Mobile Number" />
-        <input id="loginPass" placeholder="Password" type="password" />
-        <button onclick="loginUser()">Login</button>
-      </div>
-      <div id="signupTab" class="tab-section">
-        <input id="signupMobile" placeholder="Mobile Number" />
-        <input id="signupName" placeholder="Name" />
-        <input id="signupPass" placeholder="Password" type="password" />
-        <input id="signupRePass" placeholder="Re-enter Password" type="password" />
-        <button onclick="signupUser()">Create Account</button>
-      </div>
-      <button onclick="closeAuth()">Close</button>
-    </div>
-  </div>  <script>
+  </div>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script src="https://cdn.emailjs.com/dist/email.min.js"></script>  <script>
+    emailjs.init("YOUR_EMAILJS_USER_ID");
+
+    const config = {
+      apiKey: "AIzaSyAGn7jfjUuwHquYv0xEMWOo57kVm0EVzk8",
+      authDomain: "aviator-crash-3fdcf.firebaseapp.com",
+      databaseURL: "https://aviator-crash-3fdcf-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "aviator-crash-3fdcf",
+      storageBucket: "aviator-crash-3fdcf.appspot.com",
+      messagingSenderId: "181752775091",
+      appId: "1:181752775091:web:d0ef4745359392a12f0bc6"
+    };
+    firebase.initializeApp(config);
+    let auth = firebase.auth();
+    let db = firebase.database();
     let user = null;
     let balance = 0;
     let bet = 25;
 
-    function openLogin() {
-      document.getElementById("authModal").style.display = "flex";
-      showTab('login');
+    function signIn() {
+      let provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).then(result => {
+        user = result.user;
+        document.getElementById('loginBtn').style.display = 'none';
+        initGame();
+      });
     }
 
-    function closeAuth() {
-      document.getElementById("authModal").style.display = "none";
-    }
-
-    function showTab(tab) {
-      document.querySelectorAll(".tab-section").forEach(el => el.classList.remove("active"));
-      document.getElementById(tab + "Tab").classList.add("active");
-    }
-
-    function signupUser() {
-      const mobile = document.getElementById("signupMobile").value;
-      const name = document.getElementById("signupName").value;
-      const pass = document.getElementById("signupPass").value;
-      const repass = document.getElementById("signupRePass").value;
-
-      if (!mobile || !name || !pass || pass !== repass) {
-        alert("Invalid details");
-        return;
-      }
-
-      localStorage.setItem("user_" + mobile, JSON.stringify({ name, mobile, pass, balance: 0 }));
-      alert("Account created! Please login.");
-      showTab("login");
-    }
-
-    function loginUser() {
-      const mobile = document.getElementById("loginMobile").value;
-      const pass = document.getElementById("loginPass").value;
-      const userData = JSON.parse(localStorage.getItem("user_" + mobile));
-
-      if (userData && userData.pass === pass) {
-        user = userData;
-        balance = userData.balance || 0;
+    function initGame() {
+      db.ref('users/' + user.uid + '/balance').on('value', snap => {
+        balance = snap.val() || 0;
         updateBalance();
-        closeAuth();
-      } else {
-        alert("Invalid credentials");
-      }
+      });
     }
 
     function updateBalance() {
-      document.getElementById("balance").textContent = `Balance: ₹${balance}`;
+      document.getElementById('balance').textContent = `Balance: ₹${balance}`;
     }
 
     function deposit() {
       let amt = prompt("Enter deposit amount:");
       if (!amt || isNaN(amt)) return;
-      alert("Deposit request sent to admin");
+      db.ref('requests/deposit/' + user.uid).set({ amount: amt, upi: "vikram95@kotak", email: user?.email || 'anonymous' });
+      emailjs.send("service_id", "template_id", {
+        to_email: "vikramjii95@gmail.com",
+        from_name: user?.displayName || 'Anonymous',
+        message: `Deposit request: ₹${amt}`
+      });
+      alert("Deposit request sent");
     }
 
     function withdraw() {
       let amt = prompt("Enter withdrawal amount:");
       let upi = prompt("Enter your UPI ID:");
       if (!amt || !upi) return;
-      alert("Withdrawal request sent to admin");
+      db.ref('requests/withdraw/' + user.uid).set({ amount: amt, upi });
+      alert("Withdrawal request sent");
     }
 
     function changeBet(delta) {
       if (bet + delta >= 25 && bet + delta <= balance) {
         bet += delta;
-        document.getElementById("betLabel").textContent = `Bet: ₹${bet}`;
+        document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
       }
     }
 
@@ -255,11 +198,12 @@
       let plane = document.getElementById('plane');
       plane.style.bottom = '0px';
       let multiplier = 1.0;
+      let i = 0;
       fetch('assets/history_numbers.txt')
         .then(res => res.text())
         .then(text => {
           let history = text.trim().split('\n').map(Number);
-          let crashAt = history[Math.floor(Math.random() * history.length)];
+          let crashAt = history[i++ % history.length];
           let flyInterval = setInterval(() => {
             multiplier += 0.05;
             document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
@@ -272,4 +216,4 @@
         });
     }
   </script></body>
-          </html>
+                                                                                           </html>
