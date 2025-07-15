@@ -1,120 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Crash Game</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body {
       background: #111;
       color: white;
-      font-family: Arial;
+      font-family: sans-serif;
       text-align: center;
       padding: 20px;
     }
+    #plane {
+      width: 120px;
+      transition: transform 0.2s linear;
+      margin-top: 30px;
+    }
+    #multiplier {
+      font-size: 48px;
+      margin: 20px 0;
+      color: #00ff00;
+    }
+    .controls {
+      margin-top: 30px;
+    }
     button {
-      padding: 10px 20px;
-      font-size: 16px;
+      padding: 12px 20px;
+      font-size: 18px;
       margin: 10px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #status {
+      font-size: 20px;
+      color: #ffcc00;
     }
   </style>
 </head>
 <body>
 
-  <h1>Crash Game</h1>
+  <h1>🚀 Aviator Crash Game</h1>
+  <div id="multiplier">Loading...</div>
+  <img id="plane" src="https://i.ibb.co/pQFfDnC/Flight.png" alt="plane" />
+  <div id="status">Connecting...</div>
 
-  <div id="auth">
-    <button onclick="login()">Login with Google</button>
-  </div>
-
-  <div id="game" style="display:none;">
-    <h2 id="email"></h2>
-    <h3 id="balance">Balance: ₹0</h3>
-    <h3 id="multiplier">Multiplier: 0.00x</h3>
-
-    <button onclick="placeBet()">BET ₹25</button>
-    <button onclick="cashOut()">CASHOUT</button>
+  <div class="controls">
+    <button onclick="alert('Bet Placed!')">BET</button>
+    <button onclick="alert('Cash Out!')">CASHOUT</button>
   </div>
 
   <script>
-    const SUPABASE_URL = "https://angvxvuovzbfyxblogrv.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU";
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabaseUrl = "https://angvxvuovzbfyxblogrv.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU";
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    let user = null;
-    let balance = 0;
-    let multiplier = 1.0;
-    let interval;
+    async function fetchGameState() {
+      const { data, error } = await supabase
+        .from("game_state")
+        .select("*")
+        .eq("id", 1)
+        .single();
 
-    async function login() {
-      const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-      if (error) alert(error.message);
-    }
-
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        user = session.user;
-        document.getElementById("auth").style.display = "none";
-        document.getElementById("game").style.display = "block";
-        document.getElementById("email").textContent = user.email;
-
-        // fetch or create user balance
-        const { data, error } = await supabase.from("users").select("*").eq("id", user.id).single();
-        if (data) {
-          balance = data.balance;
-        } else {
-          await supabase.from("users").insert([{ id: user.id, email: user.email, balance: 1000 }]);
-          balance = 1000;
-        }
-        updateUI();
-        startWatchingGame();
+      if (error) {
+        console.error("Fetch error:", error);
+        document.getElementById("status").innerText = "Failed to fetch data!";
+        return;
       }
-    });
 
-    function updateUI() {
-      document.getElementById("balance").textContent = `Balance: ₹${balance}`;
+      const multiplier = data.multiplier.toFixed(2);
+      const status = data.status;
+
+      document.getElementById("multiplier").innerText = multiplier + "x";
+      document.getElementById("status").innerText = `Status: ${status}`;
+
+      // Animate plane upward
+      document.getElementById("plane").style.transform = `translateY(-${multiplier * 10}px)`;
+
+      // Color update
+      let color = "#00ff00";
+      if (multiplier >= 2 && multiplier < 4) color = "#ffaa00";
+      else if (multiplier >= 4) color = "#ff0000";
+      document.getElementById("multiplier").style.color = color;
     }
 
-    async function placeBet() {
-      if (balance >= 25) {
-        balance -= 25;
-        updateUI();
-        await supabase.from("users").update({ balance }).eq("id", user.id);
-      } else {
-        alert("Not enough balance!");
-      }
-    }
-
-    async function cashOut() {
-      let win = Math.round(25 * multiplier);
-      balance += win;
-      updateUI();
-      alert("You won ₹" + win);
-      await supabase.from("users").update({ balance }).eq("id", user.id);
-    }
-
-    async function startWatchingGame() {
-      // Watch game_state table for multiplier
-      const { data: listener } = await supabase
-        .channel('game_updates')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'game_state',
-        }, payload => {
-          const data = payload.new;
-          multiplier = data.multiplier;
-          document.getElementById("multiplier").textContent = `Multiplier: ${multiplier.toFixed(2)}x`;
-        })
-        .subscribe();
-
-      // Initial fetch
-      const { data, error } = await supabase.from("game_state").select("*").limit(1).single();
-      if (data) {
-        multiplier = data.multiplier;
-        document.getElementById("multiplier").textContent = `Multiplier: ${multiplier.toFixed(2)}x`;
-      }
-    }
+    setInterval(fetchGameState, 300); // update every 300ms
+    fetchGameState(); // initial call
   </script>
 </body>
 </html>
