@@ -43,23 +43,50 @@
       border: none;
       border-radius: 4px;
     }
+    #authOptions {
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      background: #333;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+    }
+    #authOptions input {
+      padding: 6px;
+      border-radius: 4px;
+      border: none;
+    }
+    #authOptions button {
+      padding: 6px;
+      font-size: 12px;
+      background: #06f;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
     #loginBtn {
-      margin: 5px auto;
-      display: block;
-      font-size: 14px;
-      padding: 5px 10px;
+      position: absolute;
+      top: 12px;
+      right: 10px;
+      font-size: 12px;
+      padding: 5px 8px;
       background: #06f;
       border: none;
       border-radius: 4px;
       color: white;
+      z-index: 999;
     }
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      padding-top: 20px;
+      justify-content: flex-end;
+      padding-bottom: 40px;
     }
     #plane {
       width: 100px;
@@ -68,15 +95,15 @@
       transition: bottom 1s linear;
     }
     #multiplier {
-      font-size: 32px;
+      font-size: 28px;
       margin-bottom: 5px;
     }
-    #controls, #betControl {
+    #controls {
       display: flex;
       gap: 10px;
       margin-top: 10px;
     }
-    #controls button, #betControl button {
+    #controls button {
       padding: 10px;
       font-size: 14px;
       background: #28a745;
@@ -84,12 +111,15 @@
       border: none;
       border-radius: 4px;
     }
-    #betLabel {
-      font-size: 16px;
+    #betControl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
     }
     #balance {
       font-size: 18px;
-      margin-bottom: 5px;
+      margin-top: 5px;
     }
   </style>
 </head>
@@ -102,7 +132,14 @@
         <button onclick="withdraw()">Withdraw</button>
       </div>
     </header>
-    <button id="loginBtn" onclick="signIn()">Login with Fingerprint</button>
+    <button id="loginBtn" onclick="toggleAuthOptions()">Login</button>
+    <div id="authOptions">
+      <input type="text" id="username" placeholder="Name" />
+      <input type="text" id="mobile" placeholder="Mobile Number" />
+      <input type="date" id="dob" />
+      <button onclick="registerUser()">Create Account</button>
+      <button onclick="loginUser()">Login with Fingerprint</button>
+    </div>
     <main>
       <div id="balance">Balance: ₹0</div>
       <div id="multiplier">0.00x</div>
@@ -117,96 +154,112 @@
         <button onclick="cashOut()">CASHOUT</button>
       </div>
     </main>
-  </div>
-  <script>
+  </div>  <script>
     let balance = 1000;
     let bet = 25;
-    let multiplier = 1.0;
+    let historyIndex = 0;
     let crashHistory = [];
-    let plane = document.getElementById('plane');
-    let historyIndex = 0;function updateBalance() {
-  document.getElementById('balance').textContent = `Balance: ₹${balance}`;
-}
 
-function changeBet(delta) {
-  if (bet + delta >= 25 && bet + delta <= balance) {
-    bet += delta;
-    document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
-  }
-}
-
-function placeBet() {
-  if (balance >= bet) {
-    balance -= bet;
-    updateBalance();
-    startFlight();
-  }
-}
-
-function cashOut() {
-  let win = Math.round(bet * multiplier);
-  balance += win;
-  updateBalance();
-  alert(`Cashed out: ₹${win}`);
-}
-
-function deposit() {
-  alert("Deposit option under development");
-}
-
-function withdraw() {
-  alert("Withdraw option under development");
-}
-
-function signIn() {
-  alert("Fingerprint login coming soon. We'll store device, name & DOB securely.");
-}
-
-function loadCrashHistory() {
-  fetch('assets/history_numbers.txt')
-    .then(res => res.text())
-    .then(data => {
-      crashHistory = data.trim().split('\n').map(Number);
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch('assets/history_numbers.txt')
+        .then(res => res.text())
+        .then(text => {
+          crashHistory = text.trim().split('\n').map(Number);
+          loopFlight();
+        });
     });
-}
 
-function startFlight() {
-  let i = historyIndex % crashHistory.length;
-  let crashPoint = crashHistory[i];
-  historyIndex++;
-  multiplier = 1.0;
-  let interval = setInterval(() => {
-    multiplier += 0.05;
-    document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
-    plane.style.bottom = `${multiplier * 20}px`;
-    if (multiplier >= crashPoint) {
-      clearInterval(interval);
-      addToHistory(crashPoint);
-      alert(`Plane crashed at ${crashPoint}x`);
+    function toggleAuthOptions() {
+      const box = document.getElementById("authOptions");
+      box.style.display = box.style.display === "flex" ? "none" : "flex";
     }
-  }, 100);
-}
 
-function addToHistory(value) {
-  const historyDiv = document.getElementById('history');
-  let span = document.createElement('span');
-  span.className = 'history-item';
-  span.textContent = `${value}x`;
-  span.style.color = value < 2 ? 'red' : value < 4 ? 'orange' : 'lime';
-  historyDiv.prepend(span);
-  while (historyDiv.children.length > 5) {
-    historyDiv.removeChild(historyDiv.lastChild);
-  }
-}
+    function registerUser() {
+      const name = document.getElementById("username").value;
+      const mobile = document.getElementById("mobile").value;
+      const dob = document.getElementById("dob").value;
+      if (!name || !mobile || !dob) return alert("Fill all details");
+      localStorage.setItem(mobile, JSON.stringify({ name, dob, balance: 0 }));
+      alert("Account created. Now scan fingerprint.");
+    }
 
-window.onload = () => {
-  loadCrashHistory();
-  updateBalance();
-  setInterval(() => {
-    if (crashHistory.length > 0) startFlight();
-  }, 15000);
-};
+    function loginUser() {
+      const mobile = document.getElementById("mobile").value;
+      const userData = localStorage.getItem(mobile);
+      if (!userData) return alert("Account not found.");
+      alert("Fingerprint matched.");
+      const parsed = JSON.parse(userData);
+      balance = parsed.balance || 0;
+      updateBalance();
+    }
 
-  </script>
-</body>
-</html>
+    function updateBalance() {
+      document.getElementById("balance").textContent = `Balance: ₹${balance}`;
+    }
+
+    function changeBet(delta) {
+      if (bet + delta >= 25 && bet + delta <= balance) {
+        bet += delta;
+        document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
+      }
+    }
+
+    function placeBet() {
+      if (balance >= bet) {
+        balance -= bet;
+        updateBalance();
+      }
+    }
+
+    function cashOut() {
+      let multiplier = parseFloat(document.getElementById('multiplier').textContent);
+      let win = Math.round(bet * multiplier);
+      balance += win;
+      updateBalance();
+      alert(`Cashed out: ₹${win}`);
+    }
+
+    function loopFlight() {
+      let multiplier = 1.0;
+      let plane = document.getElementById('plane');
+      setInterval(() => {
+        const crashAt = crashHistory[historyIndex++ % crashHistory.length];
+        multiplier = 1.0;
+        let interval = setInterval(() => {
+          multiplier += 0.05;
+          document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
+          plane.style.bottom = `${multiplier * 20}px`;
+          if (multiplier >= crashAt) {
+            clearInterval(interval);
+            addHistory(crashAt);
+          }
+        }, 100);
+      }, 8000);
+    }
+
+    function addHistory(val) {
+      const div = document.getElementById("history");
+      const item = document.createElement("div");
+      item.className = "history-item";
+      item.textContent = `${val.toFixed(2)}x`;
+      item.style.color = val < 2 ? "red" : val < 4 ? "orange" : "green";
+      div.prepend(item);
+      if (div.children.length > 5) div.removeChild(div.lastChild);
+    }
+
+    function deposit() {
+      const amt = prompt("Deposit amount:");
+      if (!amt || isNaN(amt)) return;
+      balance += parseInt(amt);
+      updateBalance();
+    }
+
+    function withdraw() {
+      const amt = prompt("Withdrawal amount:");
+      if (!amt || isNaN(amt) || amt > balance) return;
+      balance -= parseInt(amt);
+      updateBalance();
+      alert("Withdrawal requested.");
+    }
+  </script></body>
+  </html>
