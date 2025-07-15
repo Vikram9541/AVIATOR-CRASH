@@ -1,214 +1,160 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html><html>
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aviator Crash Game</title>
+  <title>Crash Game Web</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get, update, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";const firebaseConfig = {
+  apiKey: "AIzaSyAGn7jfjUuwHquYv0xEMWOo57kVm0EVzk8",
+  authDomain: "aviator-crash-3fdcf.firebaseapp.com",
+  databaseURL: "https://aviator-crash-3fdcf-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "aviator-crash-3fdcf",
+  storageBucket: "aviator-crash-3fdcf.appspot.com",
+  messagingSenderId: "181752775091",
+  appId: "1:181752775091:web:d0ef4745359392a12f0bc6"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase();
+const auth = getAuth();
+const provider = new GoogleAuthProvider();
+
+let userId = null;
+let crashData = [3.13, 2.6, 1.07, 1.5, 4.4];
+let historyIndex = 0;
+let balance = 0;
+let bet = 25;
+let multiplier = 1.0;
+let crashPoint = 2.0;
+let locked = false;
+let crashed = false;
+
+const status = (msg) => document.getElementById("status").innerText = msg;
+
+function updateUI() {
+  document.getElementById("balance").innerText = `₹${balance}`;
+  document.getElementById("bet").innerText = `Bet: ₹${bet}`;
+}
+
+document.getElementById("loginBtn").onclick = async () => {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    userId = result.user.uid;
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        userId = user.uid;
+        const balRef = ref(db, `users/${userId}/balance`);
+        get(balRef).then(snapshot => {
+          if (snapshot.exists()) {
+            balance = snapshot.val();
+          } else {
+            set(balRef, 0);
+          }
+          updateUI();
+          document.getElementById("game").style.display = "block";
+          document.getElementById("loginBtn").style.display = "none";
+        });
+      }
+    });
+  } catch (err) {
+    alert("Login failed");
+  }
+};
+
+document.getElementById("increase").onclick = () => {
+  if (bet + 25 <= balance) bet += 25;
+  updateUI();
+};
+document.getElementById("decrease").onclick = () => {
+  if (bet > 25) bet -= 25;
+  updateUI();
+};
+
+document.getElementById("deposit").onclick = () => {
+  alert("Send UPI payment to vikram95@kotak and wait for manual confirmation.");
+};
+
+document.getElementById("withdraw").onclick = () => {
+  const amt = prompt("Enter amount to withdraw:");
+  const upi = prompt("Enter your UPI ID:");
+  if (amt && upi) {
+    push(ref(db, `withdrawals/`), { userId, amt, upi });
+    alert("Withdrawal request sent.");
+  }
+};
+
+document.getElementById("betBtn").onclick = () => {
+  if (locked || bet > balance) return;
+  balance -= bet;
+  locked = true;
+  crashed = false;
+  updateUI();
+  status("Plane flying...");
+  multiplier = 1.0;
+  document.getElementById("plane").style.bottom = "0%";
+  crashPoint = crashData[historyIndex % crashData.length];
+  historyIndex++;
+  startFlight();
+};
+
+document.getElementById("cashoutBtn").onclick = () => {
+  if (!locked || crashed) return;
+  locked = false;
+  const win = Math.round(multiplier * bet);
+  balance += win;
+  set(ref(db, `users/${userId}/balance`), balance);
+  updateUI();
+  status(`Cashed out at ${multiplier.toFixed(2)}x for ₹${win}`);
+};
+
+function startFlight() {
+  const plane = document.getElementById("plane");
+  let m = 1.0;
+  const int = setInterval(() => {
+    multiplier = m;
+    document.getElementById("multiplier").innerText = `${multiplier.toFixed(2)}x`;
+    plane.style.bottom = `${Math.min(m * 15, 80)}%`;
+    m += 0.05;
+    if (m >= crashPoint) {
+      clearInterval(int);
+      status(`Crashed at ${crashPoint.toFixed(2)}x`);
+      crashed = true;
+      locked = false;
+      if (userId) set(ref(db, `users/${userId}/balance`), balance);
+    }
+  }, 100);
+}
+
+  </script>
   <style>
-    body {
-      background: #121212;
-      color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-    }
-    #plane {
-      width: 100px;
-      position: relative;
-      transition: transform 0.3s linear;
-    }
-    .btn {
-      margin: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-    }
-    #history span {
-      margin: 0 5px;
-      font-weight: bold;
-    }
-    .green { color: green; }
-    .orange { color: orange; }
-    .red { color: red; }
+    body { font-family: sans-serif; background: #111; color: white; text-align: center; }
+    #game { display: none; margin-top: 20px; }
+    button { padding: 10px; font-size: 16px; margin: 5px; }
+    #plane { width: 100px; position: relative; transition: bottom 0.1s linear; }
+    .small { font-size: 18px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Aviator Crash Game</h1><div id="user-area">
-  <button onclick="login()">Sign in with Google</button>
-  <p id="user-info"></p>
-</div>
-
-<p id="balance">Balance: ₹0</p>
-<p>Bet: ₹<span id="bet">25</span></p>
-<button class="btn" onclick="decreaseBet()">-25</button>
-<button class="btn" onclick="increaseBet()">+25</button>
-<br />
-<button class="btn" onclick="placeBet()">BET</button>
-<button class="btn" onclick="cashOut()">CASHOUT</button>
-
-<p id="countdown"></p>
-<p id="multiplier">0.00x</p>
-
-<img id="plane" src="assets/Flight.png" />
-
-<p id="history">History: </p>
-
-<div>
-  <h3>Deposit / Withdrawal</h3>
-  <button onclick="requestDeposit()">Request Deposit</button>
-  <br />
-  <input id="withdraw-amount" type="number" placeholder="Amount" />
-  <input id="upi-id" type="text" placeholder="Your UPI ID" />
-  <button onclick="requestWithdrawal()">Withdraw</button>
-</div>
-
-  </div><audio id="flySound" src="assets/Plane_FlySound.wav" loop></audio> <audio id="crashSound" src="assets/Blast_Sound.wav"></audio>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getDatabase, ref, onValue, set, push, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAGn7jfjUuwHquYv0xEMWOo57kVm0EVzk8",
-      authDomain: "aviator-crash-3fdcf.firebaseapp.com",
-      databaseURL: "https://aviator-crash-3fdcf-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "aviator-crash-3fdcf",
-      storageBucket: "aviator-crash-3fdcf.appspot.com",
-      messagingSenderId: "181752775091",
-      appId: "1:181752775091:web:d0ef4745359392a12f0bc6"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const auth = getAuth();
-    let user = null;
-    let multiplier = 1.0;
-    let crashValue = 2 + Math.random() * 3;
-    let interval = null;
-    let betAmount = 25;
-    let balance = 0;
-    let hasBet = false;
-    let cashedOut = false;
-    let flySound = document.getElementById("flySound");
-    let crashSound = document.getElementById("crashSound");
-
-    function updateBalanceUI() {
-      document.getElementById("balance").innerText = `Balance: ₹${balance}`;
-    }
-
-    function increaseBet() {
-      if (betAmount + 25 <= balance) {
-        betAmount += 25;
-        document.getElementById("bet").innerText = betAmount;
-      }
-    }
-
-    function decreaseBet() {
-      if (betAmount > 25) {
-        betAmount -= 25;
-        document.getElementById("bet").innerText = betAmount;
-      }
-    }
-
-    function placeBet() {
-      if (balance >= betAmount && !hasBet) {
-        balance -= betAmount;
-        hasBet = true;
-        cashedOut = false;
-        updateBalanceUI();
-      }
-    }
-
-    function cashOut() {
-      if (hasBet && !cashedOut) {
-        const win = Math.round(betAmount * multiplier);
-        balance += win;
-        cashedOut = true;
-        hasBet = false;
-        updateBalanceUI();
-      }
-    }
-
-    function startGame() {
-      multiplier = 1.0;
-      crashValue = 2 + Math.random() * 3;
-      document.getElementById("multiplier").innerText = multiplier.toFixed(2) + "x";
-      flySound.play();
-
-      interval = setInterval(() => {
-        multiplier += 0.02;
-        document.getElementById("multiplier").innerText = multiplier.toFixed(2) + "x";
-        document.getElementById("plane").style.transform = `translateY(-${multiplier * 10}px)`;
-
-        if (multiplier >= crashValue) {
-          clearInterval(interval);
-          flySound.pause();
-          crashSound.play();
-
-          if (hasBet && !cashedOut) {
-            // lost bet
-          }
-
-          let crashText = document.createElement("span");
-          crashText.innerText = crashValue.toFixed(2) + "x";
-          crashText.className = crashValue < 2 ? "red" : crashValue < 4 ? "orange" : "green";
-          document.getElementById("history").appendChild(crashText);
-          setTimeout(startGame, 5000);
-          hasBet = false;
-          cashedOut = false;
-        }
-      }, 100);
-    }
-
-    function login() {
-      signInWithPopup(auth, new GoogleAuthProvider())
-        .then(result => {
-          user = result.user;
-          document.getElementById("user-info").innerText = `Logged in as: ${user.email}`;
-          const balRef = ref(db, "balances/" + user.uid);
-          onValue(balRef, snap => {
-            balance = snap.val() || 0;
-            updateBalanceUI();
-          });
-        });
-    }
-
-    function requestDeposit() {
-      if (!user) return alert("Login first");
-      const depRef = push(ref(db, "deposits"));
-      set(depRef, {
-        uid: user.uid,
-        email: user.email,
-        status: "pending"
-      });
-      alert("Request sent. Pay on UPI: vikram95@kotak and wait for approval.");
-    }
-
-    function requestWithdrawal() {
-      if (!user) return alert("Login first");
-      const amount = parseInt(document.getElementById("withdraw-amount").value);
-      const upi = document.getElementById("upi-id").value;
-      if (amount > balance) return alert("Not enough balance");
-      const wRef = push(ref(db, "withdrawals"));
-      set(wRef, {
-        uid: user.uid,
-        email: user.email,
-        amount,
-        upi,
-        status: "pending"
-      });
-      balance -= amount;
-      update(ref(db, { ["balances/" + user.uid]: balance }));
-      updateBalanceUI();
-      alert("Withdrawal request sent");
-    }
-
-    startGame();
-  </script></body>
-  </html>
+  <h1>Crash Game</h1>
+  <button id="loginBtn">Login with Google</button>  <div id="game">
+    <div id="status">Waiting...</div>
+    <div id="balance">₹0</div>
+    <div id="multiplier" class="small">1.00x</div>
+    <img id="plane" src="assets/Flight.png" />
+    <div>
+      <button id="decrease">-25</button>
+      <span id="bet" class="small">Bet: ₹25</span>
+      <button id="increase">+25</button>
+    </div>
+    <div>
+      <button id="betBtn">BET</button>
+      <button id="cashoutBtn">CASHOUT</button>
+    </div>
+    <div>
+      <button id="deposit">Deposit</button>
+      <button id="withdraw">Withdraw</button>
+    </div>
+  </div>
+</body>
+</html>
