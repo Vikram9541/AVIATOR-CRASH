@@ -1,181 +1,127 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
+  <title>VStar Crash Game - Login/Register</title>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crash Game</title>
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background: #222;
-    }
-    #history {
-      display: flex;
-      gap: 5px;
-    }
-    #menu button {
-      background: #06f;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
-    }
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px;
-    }
-    #plane {
-      width: 120px;
-      position: relative;
-    }
-    #controls, #betControl {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    button {
-      padding: 10px;
-      background: #28a745;
-      color: white;
-      border: none;
-      border-radius: 4px;
-    }
-    #loginForm, #existingLoginForm {
-      display: none;
-      flex-direction: column;
-      gap: 5px;
-      margin-top: 10px;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; padding: 50px; }
+    input, button { padding: 10px; margin: 5px; width: 260px; }
+    .box { background: white; padding: 30px; border-radius: 12px; display: inline-block; box-shadow: 0 0 10px gray; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <header>
-    <div id="history"></div>
-    <div id="menu">
-      <button onclick="showLoginTab('new')">Create Account</button>
-      <button onclick="showLoginTab('existing')">Login</button>
-      <button onclick="deposit()">Deposit</button>
-    </div>
-  </header>
-  <div id="main">
-    <div id="balance">Balance: ₹0</div>
-    <div id="multiplier">1.00x</div>
-    <img id="plane" src="assets/Flight.png" alt="Plane"><div id="betControl">
-  <button onclick="changeBet(-25)">-25</button>
-  <span id="betLabel">Bet: ₹25</span>
-  <button onclick="changeBet(25)">+25</button>
+
+<div class="box">
+  <h2 id="formTitle">Login</h2>
+  <input type="text" id="username" placeholder="Username" /><br/>
+  <input type="password" id="password" placeholder="Password" /><br/>
+  <input type="email" id="email" placeholder="Email (Signup Only)" class="hidden" /><br/>
+  <input type="text" id="upi" placeholder="UPI ID (Signup Only)" class="hidden" /><br/>
+  <button onclick="handleAction()" id="actionBtn">Login</button><br/>
+  <small><a href="#" onclick="toggleForm()">Don't have an account? Register here</a></small>
+  <h3 id="statusMsg"></h3>
 </div>
 
-<div id="controls">
-  <button onclick="placeBet()">BET</button>
-  <button onclick="cashOut()">CASHOUT</button>
+<div class="box hidden" id="userBox">
+  <h2 id="welcomeText"></h2>
+  <p><b>Balance:</b> ₹0 <span id="userBalance"></span></p>
+  <input type="number" id="depositAmount" placeholder="Deposit Amount" /><br/>
+  <button onclick="requestDeposit()">Request Deposit</button><br/>
+  <input type="text" id="withdrawUPI" placeholder="Your UPI ID" /><br/>
+  <button onclick="requestWithdrawal()">Request Withdrawal</button><br/>
+  <button onclick="logout()">Logout</button>
 </div>
 
-<div id="loginForm">
-  <input type="text" id="newName" placeholder="Name">
-  <input type="text" id="newPhone" placeholder="Phone">
-  <input type="password" id="newPassword" placeholder="Password">
-  <button onclick="createAccount()">Create Account</button>
-</div>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    databaseURL: "https://aviator-crash-3fdcf-default-rtdb.firebaseio.com/"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-<div id="existingLoginForm">
-  <input type="text" id="loginPhone" placeholder="Phone">
-  <input type="password" id="loginPassword" placeholder="Password">
-  <button onclick="login()">Login</button>
-</div>
+  let isLogin = true;
+  let currentUserKey = null;
 
-  </div>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>  <script>
-    const supabase = supabase.createClient(
-      'https://angvxvuovzbfyxblogrv.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU'
-    );
+  function toggleForm() {
+    isLogin = !isLogin;
+    document.getElementById("formTitle").innerText = isLogin ? "Login" : "Register";
+    document.getElementById("actionBtn").innerText = isLogin ? "Login" : "Create Account";
+    document.getElementById("email").classList.toggle("hidden", isLogin);
+    document.getElementById("upi").classList.toggle("hidden", isLogin);
+    document.getElementById("statusMsg").innerText = "";
+  }
 
-    let currentUser = null;
-    let balance = 0;
-    let bet = 25;
+  function handleAction() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const upi = document.getElementById("upi").value.trim();
+    const ref = db.ref("VStar");
 
-    function updateUI() {
-      document.getElementById('balance').textContent = `Balance: ₹${balance}`;
-      document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
-    }
-
-    function changeBet(delta) {
-      if (bet + delta >= 25 && bet + delta <= balance) {
-        bet += delta;
-        updateUI();
+    if (isLogin) {
+      ref.orderByChild("username").equalTo(username).once("value", snapshot => {
+        let found = false;
+        snapshot.forEach(child => {
+          if (child.val().password === password) {
+            currentUserKey = child.key;
+            document.getElementById("statusMsg").innerText = "✅ Login successful!";
+            showUserPanel(child.val());
+            found = true;
+          }
+        });
+        if (!found) document.getElementById("statusMsg").innerText = "❌ Invalid credentials";
+      });
+    } else {
+      if (!username || !password || !email || !upi) {
+        document.getElementById("statusMsg").innerText = "Please fill all fields.";
+        return;
       }
+      const userId = "user_" + Date.now();
+      ref.push({
+        user_id: userId,
+        username, email, upi_id: upi,
+        password,
+        balance: 0,
+        timestamp: new Date().toISOString()
+      }, err => {
+        if (err) {
+          document.getElementById("statusMsg").innerText = "❌ Error creating account.";
+        } else {
+          document.getElementById("statusMsg").innerText = "✅ Account created. Please login.";
+          toggleForm();
+        }
+      });
     }
+  }
 
-    function showLoginTab(tab) {
-      document.getElementById('loginForm').style.display = tab === 'new' ? 'flex' : 'none';
-      document.getElementById('existingLoginForm').style.display = tab === 'existing' ? 'flex' : 'none';
-    }
+  function showUserPanel(user) {
+    document.querySelector(".box").classList.add("hidden");
+    const box = document.getElementById("userBox");
+    box.classList.remove("hidden");
+    document.getElementById("welcomeText").innerText = `Welcome, ${user.username}`;
+    document.getElementById("userBalance").innerText = user.balance;
+  }
 
-    async function createAccount() {
-      const name = document.getElementById('newName').value;
-      const phone = document.getElementById('newPhone').value;
-      const password = document.getElementById('newPassword').value;
+  function requestDeposit() {
+    const amt = parseInt(document.getElementById("depositAmount").value);
+    if (!amt || amt <= 0) return alert("Enter valid deposit amount");
+    alert("Send ₹" + amt + " to vikram95@kotak and wait for manual approval.");
+  }
 
-      const { data, error } = await supabase
-        .from('players')
-        .insert([{ name, mobile: phone, password, balance: 0 }]);
+  function requestWithdrawal() {
+    const upi = document.getElementById("withdrawUPI").value.trim();
+    if (!upi) return alert("Enter valid UPI ID");
+    alert("Withdrawal request sent! Admin will review and process manually.");
+  }
 
-      if (error) return alert('Account creation failed');
-      alert('Account created! Now login.');
-    }
-
-    async function login() {
-      const phone = document.getElementById('loginPhone').value;
-      const password = document.getElementById('loginPassword').value;
-
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('mobile', phone)
-        .eq('password', password);
-
-      if (error || !data.length) return alert('Login failed');
-
-      currentUser = data[0];
-      balance = currentUser.balance;
-      updateUI();
-      alert('Login successful');
-    }
-
-    function placeBet() {
-      if (!currentUser || balance < bet) return alert('Not enough balance');
-      balance -= bet;
-      updateUI();
-    }
-
-    function cashOut() {
-      const multiplier = parseFloat(document.getElementById('multiplier').textContent);
-      const win = Math.round(bet * multiplier);
-      balance += win;
-      updateUI();
-      alert(`Cashed out ₹${win}`);
-    }
-
-    async function deposit() {
-      if (!currentUser) return alert('Login first');
-      const amt = prompt('Enter deposit amount');
-      const utr = prompt('Enter UTR after sending to vikram95@kotak');
-      alert(`Request noted with UTR: ${utr}`);
-    }
-  </script></body>
+  function logout() {
+    currentUserKey = null;
+    location.reload();
+  }
+</script>
+</body>
 </html>
