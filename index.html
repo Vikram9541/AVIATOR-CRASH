@@ -13,69 +13,69 @@
       flex-direction: column;
       height: 100vh;
     }
-    header, #authSection {
-      background: #222;
-      padding: 10px;
+    header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 10px;
+      background: #222;
     }
-    button {
+    #history {
+      display: flex;
+      gap: 5px;
+    }
+    #menu button {
       background: #06f;
       color: white;
       border: none;
-      padding: 8px 12px;
+      padding: 6px 12px;
       border-radius: 4px;
-      margin: 5px;
-      cursor: pointer;
     }
     #main {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 10px;
+      justify-content: space-between;
       padding: 10px;
     }
     #plane {
       width: 120px;
-      height: auto;
+      position: relative;
     }
-    #history {
+    #controls, #betControl {
       display: flex;
       gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
       margin-bottom: 10px;
     }
-    .history-item {
-      padding: 4px 8px;
+    button {
+      padding: 10px;
+      background: #28a745;
+      color: white;
+      border: none;
       border-radius: 4px;
-      font-weight: bold;
     }
-    #betControls, #controls {
-      display: flex;
-      gap: 10px;
+    #loginForm, #existingLoginForm {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 10px;
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 <body>
   <header>
-    <div id="balance">Balance: ₹0</div>
-    <div>
-      <button onclick="showLoginForm()">Login</button>
-      <button onclick="showRegisterForm()">Register</button>
+    <div id="history"></div>
+    <div id="menu">
+      <button onclick="showLoginTab('new')">Create Account</button>
+      <button onclick="showLoginTab('existing')">Login</button>
+      <button onclick="deposit()">Deposit</button>
     </div>
-  </header>  <div id="authSection" style="display: none; flex-direction: column; gap: 10px;">
-    <input id="name" placeholder="Name (for new users)" style="display: none;" />
-    <input id="mobile" placeholder="Mobile" />
-    <input id="password" placeholder="Password" type="password" />
-    <button onclick="submitAuth()">Submit</button>
-  </div>  <div id="main">
-    <div id="multiplier">Multiplier: 1.00x</div>
-    <img id="plane" src="https://vikram9541.github.io/assets/Flight.png" alt="Plane" /><div id="betControls">
+  </header>
+  <div id="main">
+    <div id="balance">Balance: ₹0</div>
+    <div id="multiplier">1.00x</div>
+    <img id="plane" src="assets/Flight.png" alt="Plane"><div id="betControl">
   <button onclick="changeBet(-25)">-25</button>
   <span id="betLabel">Bet: ₹25</span>
   <button onclick="changeBet(25)">+25</button>
@@ -86,107 +86,96 @@
   <button onclick="cashOut()">CASHOUT</button>
 </div>
 
-<div id="history"></div>
+<div id="loginForm">
+  <input type="text" id="newName" placeholder="Name">
+  <input type="text" id="newPhone" placeholder="Phone">
+  <input type="password" id="newPassword" placeholder="Password">
+  <button onclick="createAccount()">Create Account</button>
+</div>
 
-  </div>  <script>
+<div id="existingLoginForm">
+  <input type="text" id="loginPhone" placeholder="Phone">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button onclick="login()">Login</button>
+</div>
+
+  </div>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>  <script>
     const supabase = supabase.createClient(
-      "https://angvxvuovzbfyxblogrv.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU"
+      'https://angvxvuovzbfyxblogrv.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU'
     );
 
     let currentUser = null;
     let balance = 0;
     let bet = 25;
-    let multiplier = 1.0;
-    let crashPoint = 2.0;
-    let history = [];
 
-    async function showLoginForm() {
-      document.getElementById('authSection').style.display = 'flex';
-      document.getElementById('name').style.display = 'none';
-      authMode = 'login';
-    }
-
-    async function showRegisterForm() {
-      document.getElementById('authSection').style.display = 'flex';
-      document.getElementById('name').style.display = 'block';
-      authMode = 'register';
-    }
-
-    async function submitAuth() {
-      const name = document.getElementById('name').value;
-      const mobile = document.getElementById('mobile').value;
-      const password = document.getElementById('password').value;
-
-      if (authMode === 'register') {
-        await supabase.from('users').insert([{ name, mobile, password, balance: 0 }]);
-        alert('Account created! Now login.');
-      } else {
-        const { data, error } = await supabase.from('users')
-          .select('*')
-          .eq('mobile', mobile)
-          .eq('password', password);
-        
-        if (data.length > 0) {
-          currentUser = data[0];
-          balance = currentUser.balance;
-          document.getElementById('balance').innerText = `Balance: ₹${balance}`;
-          alert('Login successful');
-        } else {
-          alert('Invalid credentials');
-        }
-      }
+    function updateUI() {
+      document.getElementById('balance').textContent = `Balance: ₹${balance}`;
+      document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
     }
 
     function changeBet(delta) {
       if (bet + delta >= 25 && bet + delta <= balance) {
         bet += delta;
-        document.getElementById('betLabel').innerText = `Bet: ₹${bet}`;
+        updateUI();
       }
+    }
+
+    function showLoginTab(tab) {
+      document.getElementById('loginForm').style.display = tab === 'new' ? 'flex' : 'none';
+      document.getElementById('existingLoginForm').style.display = tab === 'existing' ? 'flex' : 'none';
+    }
+
+    async function createAccount() {
+      const name = document.getElementById('newName').value;
+      const phone = document.getElementById('newPhone').value;
+      const password = document.getElementById('newPassword').value;
+
+      const { data, error } = await supabase
+        .from('players')
+        .insert([{ name, mobile: phone, password, balance: 0 }]);
+
+      if (error) return alert('Account creation failed');
+      alert('Account created! Now login.');
+    }
+
+    async function login() {
+      const phone = document.getElementById('loginPhone').value;
+      const password = document.getElementById('loginPassword').value;
+
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .eq('mobile', phone)
+        .eq('password', password);
+
+      if (error || !data.length) return alert('Login failed');
+
+      currentUser = data[0];
+      balance = currentUser.balance;
+      updateUI();
+      alert('Login successful');
     }
 
     function placeBet() {
-      if (!currentUser) return alert('Login first!');
-      if (balance >= bet) {
-        balance -= bet;
-        document.getElementById('balance').innerText = `Balance: ₹${balance}`;
-      }
+      if (!currentUser || balance < bet) return alert('Not enough balance');
+      balance -= bet;
+      updateUI();
     }
 
     function cashOut() {
+      const multiplier = parseFloat(document.getElementById('multiplier').textContent);
       const win = Math.round(bet * multiplier);
       balance += win;
-      document.getElementById('balance').innerText = `Balance: ₹${balance}`;
+      updateUI();
       alert(`Cashed out ₹${win}`);
     }
 
-    function startGameLoop() {
-      setInterval(() => {
-        multiplier += 0.05;
-        document.getElementById('multiplier').innerText = `Multiplier: ${multiplier.toFixed(2)}x`;
-
-        if (multiplier >= crashPoint) {
-          addToHistory(crashPoint);
-          alert(`💥 Crashed at ${crashPoint}x`);
-          multiplier = 1.0;
-          crashPoint = Math.random() * 3 + 1; // next round
-        }
-      }, 500);
+    async function deposit() {
+      if (!currentUser) return alert('Login first');
+      const amt = prompt('Enter deposit amount');
+      const utr = prompt('Enter UTR after sending to vikram95@kotak');
+      alert(`Request noted with UTR: ${utr}`);
     }
-
-    function addToHistory(val) {
-      history.unshift(val.toFixed(2) + 'x');
-      history = history.slice(0, 6);
-      const hDiv = document.getElementById('history');
-      hDiv.innerHTML = '';
-      for (const val of history) {
-        const span = document.createElement('span');
-        span.className = 'history-item';
-        span.innerText = val;
-        hDiv.appendChild(span);
-      }
-    }
-
-    startGameLoop();
   </script></body>
 </html>
