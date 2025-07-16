@@ -2,106 +2,191 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crash Game Login</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <title>Crash Game</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #111; color: white; padding: 20px; }
-    .section { margin-bottom: 30px; border: 1px solid #444; padding: 20px; border-radius: 8px; }
-    label, input, button { display: block; margin: 10px 0; }
-    input, button { padding: 10px; width: 100%; max-width: 300px; }
-    #dashboard { display: none; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header, #authSection {
+      background: #222;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    button {
+      background: #06f;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+    }
+    #plane {
+      width: 120px;
+      height: auto;
+    }
+    #history {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .history-item {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    #betControls, #controls {
+      display: flex;
+      gap: 10px;
+    }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
-<body><h1>🚀 Crash Game Auth System</h1><div id="authSection" class="section">
-  <button onclick="showSignUp()">First Time User</button>
-  <button onclick="showLogin()">Already Have an Account</button>  <div id="signUpForm" style="display:none">
-    <h3>Register</h3>
-    <label>Name</label>
-    <input id="signUpName" type="text">
-    <label>Mobile</label>
-    <input id="signUpMobile" type="text">
-    <label>Password</label>
-    <input id="signUpPass" type="password">
-    <button onclick="registerUser()">Create Account</button>
-  </div>  <div id="loginForm" style="display:none">
-    <h3>Login</h3>
-    <label>Mobile</label>
-    <input id="loginMobile" type="text">
-    <label>Password</label>
-    <input id="loginPass" type="password">
-    <button onclick="loginUser()">Login</button>
-  </div>
-</div><div id="dashboard" class="section">
-  <h2>Welcome <span id="userName"></span></h2>
-  <h3>Balance: ₹<span id="userBalance">0</span></h3>  <h3>💰 Deposit</h3>
-  <label>Enter Amount</label>
-  <input id="depositAmt" type="number">
-  <label>UPI ID: <b>vikram95@kotak</b></label>
-  <label>Enter UTR</label>
-  <input id="depositUtr" type="text">
-  <button onclick="submitDeposit()">Submit Deposit Request</button>
-</div><script>
-  const SUPABASE_URL = "https://angvxvuovzbfyxblogrv.supabase.co";
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU";
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<body>
+  <header>
+    <div id="balance">Balance: ₹0</div>
+    <div>
+      <button onclick="showLoginForm()">Login</button>
+      <button onclick="showRegisterForm()">Register</button>
+    </div>
+  </header>  <div id="authSection" style="display: none; flex-direction: column; gap: 10px;">
+    <input id="name" placeholder="Name (for new users)" style="display: none;" />
+    <input id="mobile" placeholder="Mobile" />
+    <input id="password" placeholder="Password" type="password" />
+    <button onclick="submitAuth()">Submit</button>
+  </div>  <div id="main">
+    <div id="multiplier">Multiplier: 1.00x</div>
+    <img id="plane" src="https://vikram9541.github.io/assets/Flight.png" alt="Plane" /><div id="betControls">
+  <button onclick="changeBet(-25)">-25</button>
+  <span id="betLabel">Bet: ₹25</span>
+  <button onclick="changeBet(25)">+25</button>
+</div>
 
-  let currentUser = null;
+<div id="controls">
+  <button onclick="placeBet()">BET</button>
+  <button onclick="cashOut()">CASHOUT</button>
+</div>
 
-  function showSignUp() {
-    document.getElementById('signUpForm').style.display = 'block';
-    document.getElementById('loginForm').style.display = 'none';
-  }
+<div id="history"></div>
 
-  function showLogin() {
-    document.getElementById('signUpForm').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
-  }
+  </div>  <script>
+    const supabase = supabase.createClient(
+      "https://angvxvuovzbfyxblogrv.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZ3Z4dnVvdnpiZnl4YmxvZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODM5OTMsImV4cCI6MjA2ODE1OTk5M30.qaUc04sIxTc_aD5nPDKrCr3MeaDSJB_cs1gnL8C1vKU"
+    );
 
-  async function registerUser() {
-    const name = document.getElementById('signUpName').value;
-    const mobile = document.getElementById('signUpMobile').value;
-    const password = document.getElementById('signUpPass').value;
+    let currentUser = null;
+    let balance = 0;
+    let bet = 25;
+    let multiplier = 1.0;
+    let crashPoint = 2.0;
+    let history = [];
 
-    const { data, error } = await supabase.from("users").insert([{ name, mobile, password, balance: 0 }]);
-    if (error) return alert("❌ Error: " + error.message);
-    alert("✅ Account Created. Please login.");
-    showLogin();
-  }
+    async function showLoginForm() {
+      document.getElementById('authSection').style.display = 'flex';
+      document.getElementById('name').style.display = 'none';
+      authMode = 'login';
+    }
 
-  async function loginUser() {
-    const mobile = document.getElementById('loginMobile').value;
-    const password = document.getElementById('loginPass').value;
+    async function showRegisterForm() {
+      document.getElementById('authSection').style.display = 'flex';
+      document.getElementById('name').style.display = 'block';
+      authMode = 'register';
+    }
 
-    const { data, error } = await supabase.from("users")
-      .select("*")
-      .eq("mobile", mobile)
-      .eq("password", password)
-      .maybeSingle();
+    async function submitAuth() {
+      const name = document.getElementById('name').value;
+      const mobile = document.getElementById('mobile').value;
+      const password = document.getElementById('password').value;
 
-    if (!data) return alert("❌ Invalid login");
-    currentUser = data;
-    document.getElementById("authSection").style.display = "none";
-    document.getElementById("dashboard").style.display = "block";
-    document.getElementById("userName").textContent = currentUser.name;
-    document.getElementById("userBalance").textContent = currentUser.balance;
-  }
-
-  async function submitDeposit() {
-    const amount = parseFloat(document.getElementById('depositAmt').value);
-    const utr = document.getElementById('depositUtr').value;
-    if (!amount || !utr) return alert("❌ Please fill amount and UTR");
-
-    const { data, error } = await supabase.from("deposit_requests").insert([
-      {
-        mobile: currentUser.mobile,
-        amount,
-        utr,
-        status: "pending"
+      if (authMode === 'register') {
+        await supabase.from('users').insert([{ name, mobile, password, balance: 0 }]);
+        alert('Account created! Now login.');
+      } else {
+        const { data, error } = await supabase.from('users')
+          .select('*')
+          .eq('mobile', mobile)
+          .eq('password', password);
+        
+        if (data.length > 0) {
+          currentUser = data[0];
+          balance = currentUser.balance;
+          document.getElementById('balance').innerText = `Balance: ₹${balance}`;
+          alert('Login successful');
+        } else {
+          alert('Invalid credentials');
+        }
       }
-    ]);
+    }
 
-    if (error) return alert("❌ Failed to submit: " + error.message);
-    alert("✅ Deposit request sent. Balance will be updated once approved.");
-  }
-</script></body>
+    function changeBet(delta) {
+      if (bet + delta >= 25 && bet + delta <= balance) {
+        bet += delta;
+        document.getElementById('betLabel').innerText = `Bet: ₹${bet}`;
+      }
+    }
+
+    function placeBet() {
+      if (!currentUser) return alert('Login first!');
+      if (balance >= bet) {
+        balance -= bet;
+        document.getElementById('balance').innerText = `Balance: ₹${balance}`;
+      }
+    }
+
+    function cashOut() {
+      const win = Math.round(bet * multiplier);
+      balance += win;
+      document.getElementById('balance').innerText = `Balance: ₹${balance}`;
+      alert(`Cashed out ₹${win}`);
+    }
+
+    function startGameLoop() {
+      setInterval(() => {
+        multiplier += 0.05;
+        document.getElementById('multiplier').innerText = `Multiplier: ${multiplier.toFixed(2)}x`;
+
+        if (multiplier >= crashPoint) {
+          addToHistory(crashPoint);
+          alert(`💥 Crashed at ${crashPoint}x`);
+          multiplier = 1.0;
+          crashPoint = Math.random() * 3 + 1; // next round
+        }
+      }, 500);
+    }
+
+    function addToHistory(val) {
+      history.unshift(val.toFixed(2) + 'x');
+      history = history.slice(0, 6);
+      const hDiv = document.getElementById('history');
+      hDiv.innerHTML = '';
+      for (const val of history) {
+        const span = document.createElement('span');
+        span.className = 'history-item';
+        span.innerText = val;
+        hDiv.appendChild(span);
+      }
+    }
+
+    startGameLoop();
+  </script></body>
 </html>
