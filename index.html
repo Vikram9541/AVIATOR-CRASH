@@ -1,287 +1,147 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html><html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crash Game</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <title>Aviator Crash Game</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body {
-      margin: 0;
-      font-family: 'Poppins', sans-serif;
-      background-color: #111;
-      color: white;
-      overflow: hidden;
-    }
-    body.light {
-      background-color: #fff;
-      color: #000;
-    }
-    #app {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #222;
-      padding: 10px;
-    }
-    #history {
-      display: flex;
-      gap: 10px;
-      font-size: 16px;
-    }
-    .history-item {
-      font-weight: bold;
-    }
-    #menu {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    #menu button {
-      padding: 5px 10px;
-      font-size: 12px;
-      background: #444;
-      color: white;
-      border: none;
-      border-radius: 4px;
-    }
-    body.light #menu button {
-      background: #ddd;
-      color: #000;
-    }
-    #loginBtn {
-      font-size: 12px;
-      padding: 5px 8px;
-      background: #06f;
-      border: none;
-      border-radius: 4px;
-      color: white;
-    }
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px;
-      position: relative;
-    }
-    #info {
-      margin-top: 10px;
-    }
-    #plane {
-      width: 120px;
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 0;
-      transition: bottom 0.2s linear;
-    }
-    #multiplier {
-      font-size: 32px;
-      margin-top: 10px;
-    }
-    #controls {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    #controls button {
-      padding: 10px;
-      font-size: 14px;
-      background: #28a745;
-      color: white;
-      border: none;
-      border-radius: 4px;
-    }
-    #betControl {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    #balance {
-      font-size: 18px;
-      margin-top: 5px;
-    }
-    #loginModal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #000a;
-      color: white;
-      z-index: 999;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-    }
+    body { font-family: Arial; text-align: center; background: #111; color: white; }
+    #plane { width: 100px; transition: transform 0.2s linear; position: absolute; top: 150px; left: 0; }
+    #history { font-size: 24px; margin-top: 10px; }
+    #countdown { font-size: 36px; color: yellow; }
+    button { margin: 5px; padding: 10px; font-size: 16px; }
+    #game { margin-top: 200px; position: relative; height: 300px; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <header>
-      <div id="history"></div>
-      <div id="menu">
-        <button onclick="deposit()">Deposit</button>
-        <button onclick="withdraw()">Withdraw</button>
-        <button onclick="toggleTheme()">Toggle Theme</button>
-        <button id="loginBtn" onclick="showLoginForm()">Login</button>
-      </div>
-    </header>
-    <main>
-      <div id="info">
-        <div id="balance">Balance: ₹0</div>
-        <div id="multiplier">0.00x</div>
-      </div>
-      <img id="plane" src="assets/Flight.png" alt="Plane" />
-      <div id="betControl">
-        <button onclick="changeBet(-25)">-25</button>
-        <span id="betLabel">Bet: ₹25</span>
-        <button onclick="changeBet(25)">+25</button>
-      </div>
-      <div id="controls">
-        <button onclick="placeBet()">BET</button>
-        <button onclick="cashOut()">CASHOUT</button>
-      </div>
-    </main>
-  </div>
-  <div id="loginModal">
-    <h3>Login</h3>
-    <input type="text" id="loginName" placeholder="Name" />
-    <input type="text" id="loginMobile" placeholder="Mobile Number" />
-    <input type="text" id="loginDOB" placeholder="Date of Birth" />
-    <button onclick="registerUser()">Register & Save Fingerprint</button>
-    <button onclick="closeLoginForm()">Cancel</button>
-  </div>
-  <script>
-    let balance = 0;
-    let bet = 25;
-    let user = null;window.onload = function () {
-  const savedUser = localStorage.getItem('user');
-  if (savedUser) {
-    user = JSON.parse(savedUser);
-    updateBalance();
-  }
-};
+  <h1>Aviator Crash Game</h1>  <!-- Auth Section -->  <div id="auth">
+    <input type="email" id="email" placeholder="Email"><br>
+    <input type="password" id="password" placeholder="Password"><br>
+    <button onclick="signUp()">Sign Up</button>
+    <button onclick="signIn()">Login</button>
+    <button onclick="signOut()">Logout</button>
+    <p id="authStatus"></p>
+  </div>  <!-- Game Section -->  <div id="game">
+    <img id="plane" src="/storage/emulated/0/Download/Flight.png">
+    <div id="countdown"></div>
+    <div>
+      <button onclick="placeBet()">Bet</button>
+      <button onclick="cashOut()">Cash Out</button>
+    </div>
+    <div id="crashStatus"></div>
+    <div id="history"></div>
+  </div>  <script>
+    const SUPABASE_URL = "https://your-project.supabase.co";
+    const SUPABASE_ANON_KEY = "your-anon-key";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function showLoginForm() {
-  document.getElementById('loginModal').style.display = 'flex';
-}
-function closeLoginForm() {
-  document.getElementById('loginModal').style.display = 'none';
-}
-function registerUser() {
-  const name = document.getElementById('loginName').value;
-  const mobile = document.getElementById('loginMobile').value;
-  const dob = document.getElementById('loginDOB').value;
-  if (!name || !mobile || !dob) return alert("Fill all details");
-  localStorage.setItem('user', JSON.stringify({ name, mobile, dob }));
-  alert("Fingerprint saved (simulated). You'll use this to login next time.");
-  user = { name, mobile, dob };
-  closeLoginForm();
-  updateBalance();
-}
+    let user = null;
+    let isBetting = false;
+    let plane = document.getElementById("plane");
+    let countdownEl = document.getElementById("countdown");
+    let crashStatus = document.getElementById("crashStatus");
+    let history = document.getElementById("history");
 
-function updateBalance() {
-  document.getElementById('balance').textContent = `Balance: ₹${balance}`;
-}
-
-function deposit() {
-  if (!user) return alert("Please login first");
-  let amt = prompt("Enter deposit amount:");
-  if (!amt || isNaN(amt)) return;
-  alert("Deposit request sent to admin");
-  balance += parseInt(amt);
-  updateBalance();
-}
-
-function withdraw() {
-  if (!user) return alert("Please login first");
-  let amt = prompt("Enter withdrawal amount:");
-  let upi = prompt("Enter your UPI ID:");
-  if (!amt || !upi) return;
-  alert("Withdrawal request sent to admin");
-  balance -= parseInt(amt);
-  updateBalance();
-}
-
-function changeBet(delta) {
-  if (bet + delta >= 25 && bet + delta <= balance) {
-    bet += delta;
-    document.getElementById('betLabel').textContent = `Bet: ₹${bet}`;
-  }
-}
-
-function placeBet() {
-  if (balance >= bet) {
-    balance -= bet;
-    updateBalance();
-    startCountdown(startFlight);
-  }
-}
-
-function cashOut() {
-  let multiplier = parseFloat(document.getElementById('multiplier').textContent);
-  let win = Math.round(bet * multiplier);
-  balance += win;
-  updateBalance();
-  alert(`Cashed out: ₹${win}`);
-}
-
-function updateHistory(multiplier) {
-  let color = multiplier < 2 ? 'red' : multiplier <= 4 ? 'orange' : 'lightgreen';
-  let el = document.createElement('span');
-  el.textContent = multiplier.toFixed(2) + "x";
-  el.className = 'history-item';
-  el.style.color = color;
-  document.getElementById('history').prepend(el);
-}
-
-function startCountdown(callback) {
-  let count = 5;
-  let interval = setInterval(() => {
-    document.getElementById('multiplier').textContent = `Taking off in ${count}...`;
-    count--;
-    if (count < 0) {
-      clearInterval(interval);
-      callback();
+    // --- Auth ---
+    async function signUp() {
+      const { error } = await supabase.auth.signUp({
+        email: email.value,
+        password: password.value
+      });
+      document.getElementById("authStatus").textContent = error ? error.message : "Signup successful!";
     }
-  }, 1000);
-}
 
-function startFlight() {
-  let plane = document.getElementById('plane');
-  plane.style.bottom = '0px';
-  let multiplier = 1.0;
-  fetch('assets/history_numbers.txt')
-    .then(res => res.text())
-    .then(text => {
-      let history = text.trim().split('\n').map(Number);
-      let crashAt = history[Math.floor(Math.random() * history.length)];
-      let flyInterval = setInterval(() => {
-        multiplier += 0.05;
-        document.getElementById('multiplier').textContent = `${multiplier.toFixed(2)}x`;
-        plane.style.bottom = `${multiplier * 20}px`;
-        if (multiplier >= crashAt) {
-          clearInterval(flyInterval);
-          alert(`Plane crashed at ${crashAt}x`);
-          updateHistory(crashAt);
+    async function signIn() {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.value,
+        password: password.value
+      });
+      if (data.user) {
+        user = data.user;
+        document.getElementById("authStatus").textContent = "Logged in as " + user.email;
+        localStorage.setItem("user", JSON.stringify(user));
+      } else {
+        document.getElementById("authStatus").textContent = error.message;
+      }
+    }
+
+    async function signOut() {
+      await supabase.auth.signOut();
+      user = null;
+      localStorage.removeItem("user");
+      document.getElementById("authStatus").textContent = "Logged out";
+    }
+
+    // Restore session
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      user = JSON.parse(savedUser);
+      document.getElementById("authStatus").textContent = "Welcome back " + user.email;
+    }
+
+    // --- Game Logic ---
+    let crashPoint = 0;
+    let multiplier = 1;
+    let flightInterval, loopInterval;
+
+    function startCountdown() {
+      let count = 5;
+      countdownEl.textContent = count;
+      let c = setInterval(() => {
+        count--;
+        countdownEl.textContent = count > 0 ? count : "✈️";
+        if (count <= 0) {
+          clearInterval(c);
+          startFlight();
         }
-      }, 100);
-    });
-}
+      }, 1000);
+    }
 
-function toggleTheme() {
-  document.body.classList.toggle('light');
-}
+    function startFlight() {
+      crashPoint = (Math.random() * 5).toFixed(2);
+      multiplier = 1;
+      let pos = 0;
+      crashStatus.textContent = "Flying...";
 
-  </script>
-</body>
+      flightInterval = setInterval(() => {
+        multiplier += 0.1;
+        pos += 10;
+        plane.style.transform = `translateX(${pos}px)`;
+        crashStatus.textContent = `Flying at ${multiplier.toFixed(2)}x`;
+
+        if (multiplier >= crashPoint) {
+          endFlight();
+        }
+      }, 200);
+    }
+
+    function endFlight() {
+      clearInterval(flightInterval);
+      crashStatus.textContent = `💥 Crashed at ${multiplier.toFixed(2)}x`;
+      history.textContent = `Last: ${multiplier.toFixed(2)}x | ` + history.textContent;
+      setTimeout(() => {
+        plane.style.transform = `translateX(0)`;
+        startCountdown();
+      }, 3000);
+    }
+
+    function placeBet() {
+      if (!user) return alert("Please log in to bet");
+      isBetting = true;
+      alert("Bet placed!");
+    }
+
+    function cashOut() {
+      if (!user) return alert("Login required to cash out");
+      if (isBetting && multiplier < crashPoint) {
+        alert(`Cashed out at ${multiplier.toFixed(2)}x`);
+        isBetting = false;
+      } else {
+        alert("Too late! Plane already crashed or no bet.");
+      }
+    }
+
+    // Start Game Loop
+    window.onload = () => {
+      startCountdown();
+    }
+  </script></body>
 </html>
